@@ -4,15 +4,59 @@ namespace FakerPress;
 Class Admin {
 	/**
 	 * Variable holding the submenus objects
+	 *
+	 * @since 0.1.0
+	 *
 	 * @var array
 	 */
 	protected static $menus = array();
 
 	/**
+	 * Variable holding the messages objects
+	 *
+	 * @since 0.1.2
+	 *
+	 * @var array
+	 */
+	protected static $messages = array();
+
+	/**
 	 * Variable holding the submenus objects
+	 *
+	 * @since 0.1.0
+	 *
 	 * @var object
 	 */
 	public static $view = null;
+
+	/**
+	 * Easier way to determine which method originated the request
+	 *
+	 * @since 0.1.2
+	 *
+	 * @var string
+	 */
+	public static $request_method = 'get';
+
+	/**
+	 * Makes it easier to check if is AJAX
+	 *
+	 * @since 0.1.2
+	 *
+	 * @var bool
+	 */
+	public static $is_ajax = false;
+
+	/**
+	 * Bool if we are inside of a Plugin request
+	 *
+	 * @todo Make this work with an AJAX request
+	 *
+	 * @since 0.1.2
+	 *
+	 * @var bool
+	 */
+	public static $in_plugin = false;
 
 	/**
 	 * Static method to include all the Hooks for WordPress
@@ -26,19 +70,12 @@ Class Admin {
 	 * @return null Construct never returns
 	 */
 	public function __construct(){
-		$this->control['posts']    = new Control\Posts;
-		$this->control['terms']    = new Control\Terms;
-		$this->control['users']    = new Control\Users;
-		$this->control['comments'] = new Control\Comments;
+		self::$request_method = strtolower( Filter::super( INPUT_SERVER, 'REQUEST_METHOD', FILTER_SANITIZE_STRING ) );
 
-		add_action( 'admin_init', array( $this, '_action_set_admin_view' ) );
+		self::$is_ajax = ( defined( 'DOING_AJAX' ) && DOING_AJAX );
 
-		// Add needs to come before `admin_menu`
-		add_action( 'init', array( $this, '_add_core_submenus' ) );
-
-		// When trying to add a menu, make bigger than the default to avoid conflicting index further on
-		add_action( 'admin_menu', array( $this, '_action_admin_menu' ), 11 );
-		add_action( 'fakerpress.view.start', array( $this, '_action_current_menu_js' ) );
+		$page = Filter::super( INPUT_GET, 'page', FILTER_SANITIZE_STRING );
+		self::$in_plugin = ( ! is_null( $page ) && strtolower( $page ) === Plugin::$slug );
 
 		self::$menus[] = (object) array(
 			'view' => 'settings',
@@ -48,6 +85,15 @@ Class Admin {
 			'priority' => 0,
 		);
 
+		// From this point on we are doing hooks!
+
+		add_action( 'admin_init', array( $this, '_action_set_admin_view' ) );
+		add_action( 'admin_notices', array( $this, '_action_admin_notices' ) );
+
+		// When trying to add a menu, make bigger than the default to avoid conflicting index further on
+		add_action( 'admin_menu', array( $this, '_action_admin_menu' ), 11 );
+		add_action( 'fakerpress.view.start', array( $this, '_action_current_menu_js' ) );
+
 		// Creating information for the plugin pages footer
 		add_filter( 'admin_footer_text', array( $this, '_filter_admin_footer_text' ) );
 		add_filter( 'update_footer', array( $this, '_filter_update_footer' ), 15 );
@@ -55,6 +101,10 @@ Class Admin {
 		add_filter( 'fakerpress.view', array( $this, '_filter_set_view_title' ) );
 		add_filter( 'fakerpress.view', array( $this, '_filter_set_view_action' ) );
 
+		// Allow WordPress
+		add_filter( 'fakerpress.messages.allowed_html', array( $this, '_filter_messages_allowed_html' ), 1, 1 );
+
+		// This has to turn to something bigger
 		add_action( 'admin_enqueue_scripts', array( $this, '_action_enqueue_ui' ) );
 	}
 
@@ -66,6 +116,9 @@ Class Admin {
 	 * @param string  $label Translatable string that will go on the menu
 	 * @param string  $capability WordPress capability that will be required to access this view
 	 * @param integer $priority The priority to show this submenu
+	 *
+	 * @since 0.1.0
+	 *
 	 */
 	public static function add_menu( $view, $title, $label, $capability = 'manage_options', $priority = 10 ){
 		$priority = absint( $priority );
@@ -77,13 +130,53 @@ Class Admin {
 			'priority' => $priority === 0 ? $priority + 1 : $priority,
 		);
 
-		usort( self::$menus, '\FakerPress\Admin::_sort_priority' );
+		usort(
+			self::$menus,
+			function( $a, $b ){
+				return $a->priority - $b->priority;
+			}
+		);
 	}
 
-	public static function _sort_priority( $a, $b ){
-		return $a->priority - $b->priority;
+	/**
+	 * Creating messages in a standard way
+	 *
+	 * @param string  $html HTML or text of the message
+	 * @param string  $type The type of the Message
+	 * @param integer $priority The priority to show this message
+	 *
+	 * @since 0.1.2
+	 *
+	 */
+	public static function add_message( $html, $type = 'success', $priority = 10 ){
+		$priority = absint( $priority );
+
+		/**
+		 * @filter fakerpress.messages.allowed_html
+		 * @since 0.1.2
+		 */
+		self::$messages[] = (object) array(
+			'html' => wp_kses( wpautop( $html ), apply_filters( 'fakerpress.messages.allowed_html', array() ), array( 'http', 'https' ) ),
+			'type' => esc_attr( $type ),
+			'priority' => $priority === 0 ? $priority + 1 : $priority,
+		);
+
+		usort(
+			self::$messages,
+			function( $a, $b ){
+				return $a->priority - $b->priority;
+			}
+		);
 	}
 
+	/**
+	 * [_action_current_menu_js description]
+	 * @param  [type] $view [description]
+	 *
+	 * @since 0.1.0
+	 *
+	 * @return [type]       [description]
+	 */
 	public function _action_current_menu_js( $view ) {
 		?>
 		<script>
@@ -114,7 +207,18 @@ Class Admin {
 		<?php
 	}
 
+	/**
+	 * [_action_set_admin_view description]
+	 *
+	 * @since 0.1.0
+	 *
+	 * @return [type] [description]
+	 */
 	public function _action_set_admin_view(){
+		if ( ! self::$in_plugin ){
+			return;
+		}
+
 		// Default Page of the plugin
 		$view = (object) array(
 			'slug' => Filter::super( INPUT_GET, 'view', 'file', self::$menus[0]->view ),
@@ -131,6 +235,9 @@ Class Admin {
 
 		// Set the Admin::$view
 		self::$view = apply_filters( 'fakerpress.view', $view );
+
+		do_action( 'fakerpress.view.request', self::$view );
+		do_action( 'fakerpress.view.request.' . self::$view->slug , self::$view );
 	}
 
 	/**
@@ -157,13 +264,46 @@ Class Admin {
 	}
 
 	/**
+	 * Method triggered to add messages recorded in this request to the admin front-end
 	 *
+	 * @since 0.1.2
+	 * @return null Actions do not return
 	 */
-	public function _add_core_submenus(){
-		self::add_menu( 'users', __( 'Users', 'fakerpress' ), __( 'Users', 'fakerpress' ), 'manage_options', 10 );
-		self::add_menu( 'terms', __( 'Terms', 'fakerpress' ), __( 'Terms', 'fakerpress' ), 'manage_options', 10 );
-		self::add_menu( 'posts', __( 'Posts', 'fakerpress' ), __( 'Posts', 'fakerpress' ), 'manage_options', 10 );
-		self::add_menu( 'comments', __( 'Comments', 'fakerpress' ), __( 'Comments', 'fakerpress' ), 'manage_options', 10 );
+	public function _action_admin_notices() {
+		foreach ( self::$messages as $k => $message ) {
+			$classes = array(
+				// Plugin class to give the styling
+				'fakerpress-message',
+				// This is to use WordPress JS to move them above the h2
+				'updated-nag',
+			);
+
+			if ( $k === 0 ) {
+				$classes[] = 'first';
+			}
+
+			if ( $k + 1 === count( self::$messages ) ) {
+				$classes[] = 'last';
+			}
+
+			switch ( $message->type ) {
+				case 'error':
+					$classes[] = 'fakerpress-message-error';
+					break;
+				case 'success':
+					$classes[] = 'fakerpress-message-success';
+					break;
+				case 'warning':
+					$classes[] = 'fakerpress-message-warning';
+					break;
+				default:
+					break;
+			}
+
+			?>
+				<div class="<?php echo wp_kses( implode( ' ', $classes ), array() ); ?>"><?php echo wp_kses( $message->html, apply_filters( 'fakerpress.messages.allowed_html', array() ), array( 'http', 'https' ) ); ?></div>
+			<?php
+		}
 	}
 
 	/**
@@ -171,17 +311,51 @@ Class Admin {
 	 *
 	 * @uses wp_register_style
 	 * @uses wp_enqueue_style
-	 * @uses \FakerPress\Plugin::url
-	 * @uses \FakerPress\Plugin::version
 	 *
 	 * @since 0.1.0
 	 *
 	 * @return null Actions do not return
 	 */
 	public function _action_enqueue_ui() {
-		wp_register_style( 'fakerpress.icon', Plugin::url( 'ui/font.css' ), array(), Plugin::version, 'screen' );
+		// Register a global CSS files
+		wp_register_style( 'fakerpress.icon', Plugin::url( 'ui/css/font.css' ), array(), Plugin::version, 'screen' );
 
+		// Enqueue a global CSS files
 		wp_enqueue_style( 'fakerpress.icon' );
+
+		if ( ! self::$in_plugin ){
+			return;
+		}
+
+		// Register the plugin CSS files
+		wp_register_style( 'fakerpress.messages', Plugin::url( 'ui/css/messages.css' ), array(), Plugin::version, 'screen' );
+
+		// Register the plugin JS files
+		wp_register_script( 'fakerpress.fields', Plugin::url( 'ui/js/fields.js' ), array( 'jquery', 'underscore', 'fakerpress.select2' ), Plugin::version, true );
+
+		// Enqueue jQuery UI DatePicker
+		wp_enqueue_script( 'jquery-ui-datepicker', array( 'jquery' ) );
+
+		// Register Vendor Select2
+		wp_register_style( 'fakerpress.select2', Plugin::url( 'ui/vendor/select2/select2.css' ), array(), '3.5.0', 'screen' );
+		wp_register_style( 'fakerpress.select2-wordpress', Plugin::url( 'ui/vendor/select2/select2-wordpress.css' ), array( 'fakerpress.select2' ), '3.5.0', 'screen' );
+		wp_register_script( 'fakerpress.select2', Plugin::url( 'ui/vendor/select2/select2.min.js' ), array( 'jquery' ), '3.5.0', true );
+
+		// Register DatePicker Skins
+		wp_register_style( 'fakerpress.datepicker', Plugin::url( 'ui/css/datepicker.css' ));
+		wp_register_style( 'fakerpress.jquery-ui-theme', Plugin::url( 'ui/css/jquery-ui-1.10.4.custom.min.css' ) );
+
+		// Enqueue DatePicker Skins
+		wp_enqueue_style( 'fakerpress.jquery-ui-theme' );
+		wp_enqueue_style( 'fakerpress.datepicker' );
+		
+
+		// Enqueue plugin CSS
+		wp_enqueue_style( 'fakerpress.messages' );
+
+		// Enqueue Vendor Select2
+		wp_enqueue_style( 'fakerpress.select2-wordpress' );
+		wp_enqueue_script( 'fakerpress.fields' );
 	}
 
 	/**
@@ -242,11 +416,51 @@ Class Admin {
 	}
 
 	public function _filter_set_admin_page_title( $admin_title, $title ){
+		if ( ! self::$in_plugin ){
+			return $admin_title;
+		}
 		$pos = strpos( $admin_title, $title );
 		if ( $pos !== false ) {
 			$admin_title = substr_replace( $admin_title, sprintf( apply_filters( 'fakerpress.admin_title_base', __( '%s on FakerPress', 'fakerpress' ) ), self::$view->title ), $pos, strlen( $title ) );
 		}
 		return $admin_title;
+	}
+
+	public function _filter_messages_allowed_html() {
+		return array(
+			'a' => array(
+				'class' => array(),
+				'href' => array(),
+				'title' => array()
+			),
+			'br' => array(
+				'class' => array(),
+			),
+			'p' => array(
+				'class' => array(),
+			),
+			'em' => array(
+				'class' => array(),
+			),
+			'strong' => array(
+				'class' => array(),
+			),
+			'b' => array(
+				'class' => array(),
+			),
+			'i' => array(
+				'class' => array(),
+			),
+			'ul' => array(
+				'class' => array(),
+			),
+			'ol' => array(
+				'class' => array(),
+			),
+			'li' => array(
+				'class' => array(),
+			),
+		);
 	}
 
 	/**
@@ -260,8 +474,7 @@ Class Admin {
 	 * @return string
 	 */
 	public function _filter_admin_footer_text( $text ){
-		$page = Filter::super( INPUT_GET, 'page', FILTER_SANITIZE_STRING );
-		if ( is_null( $page ) || strtolower( $page ) !== Plugin::$slug ){
+		if ( ! self::$in_plugin ){
 			return $text;
 		}
 
@@ -269,7 +482,7 @@ Class Admin {
 		 * @todo Review the links to the Official repository before release
 		 */
 		return
-			'<a target="_blank" href="http://wordpress.org/support/plugin/fakerpress#postform">' . __( 'Contact Support', 'fakerpress' ) . '</a>' .
+			'<a target="_blank" href="http://wordpress.org/support/plugin/fakerpress#postform">' . esc_attr__( 'Contact Support', 'fakerpress' ) . '</a>' .
 			' | ' .
 			str_replace(
 				array( '[stars]', '[wp.org]' ),
@@ -291,11 +504,10 @@ Class Admin {
 	 * @return string
 	 */
 	public function _filter_update_footer( $text ){
-		$page = Filter::super( INPUT_GET, 'page', FILTER_SANITIZE_STRING );
-		if ( is_null( $page ) || strtolower( $page ) !== Plugin::$slug ){
+		if ( ! self::$in_plugin ){
 			return $text;
 		}
 
-		return __( 'Version' ) . ': ' . '<a title="' . __( 'View what changed in this version', 'fakerpress' ) . '" href="' . Plugin::admin_url( 'view=changelog&version=' . Plugin::version ) . '">' . Plugin::version . '</a>';
+		return esc_attr_( 'Version' ) . ': ' . '<a title="' . __( 'View what changed in this version', 'fakerpress' ) . '" href="' . esc_url( Plugin::admin_url( 'view=changelog&version=' . esc_attr( Plugin::version ) ) ) . '">' . esc_attr( Plugin::version ) . '</a>';
 	}
 }

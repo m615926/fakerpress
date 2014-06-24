@@ -2,10 +2,10 @@
 # FakerPress
 
 ![Banner](assets/banner-1544x500.png)
-FakerPress is a clean way to generate fake data to your WordPress instalation, great for developers who need testing
+FakerPress is a clean way to generate fake data to your WordPress, great for developers who need testing
 
 **Contributors:** [iryz](http://profiles.wordpress.org/iryz), [bordoni](http://profiles.wordpress.org/bordoni), [luancuba](http://profiles.wordpress.org/luancuba)  
-**Tags:** [generator](http://wordpress.org/plugins/tags/generator), [admin](http://wordpress.org/plugins/tags/admin), [exemples](http://wordpress.org/plugins/tags/exemples), [testing](http://wordpress.org/plugins/tags/testing), [taxonomies](http://wordpress.org/plugins/tags/taxonomies), [users](http://wordpress.org/plugins/tags/users), [post type](http://wordpress.org/plugins/tags/post type), [faker](http://wordpress.org/plugins/tags/faker), [fake data](http://wordpress.org/plugins/tags/fake data), [random](http://wordpress.org/plugins/tags/random)  
+**Tags:** [generator](http://wordpress.org/plugins/tags/generator), [dummy content](http://wordpress.org/plugins/tags/dummy content), [lorem ipsun](http://wordpress.org/plugins/tags/lorem ipsun), [admin](http://wordpress.org/plugins/tags/admin), [exemples](http://wordpress.org/plugins/tags/exemples), [testing](http://wordpress.org/plugins/tags/testing), [taxonomies](http://wordpress.org/plugins/tags/taxonomies), [users](http://wordpress.org/plugins/tags/users), [post type](http://wordpress.org/plugins/tags/post type), [faker](http://wordpress.org/plugins/tags/faker), [fake data](http://wordpress.org/plugins/tags/fake data), [random](http://wordpress.org/plugins/tags/random)  
 **Requires at least:** 3.7  
 **Tested up to:** 3.9  
 **Stable tag:** trunk (master)  
@@ -22,6 +22,7 @@ Our goal with this plugin is to fill this gap where you have problem with a good
 **Create Fake Data for:**
 
  * Posts
+ * Custom Post Types
  * Users
  * Tags
  * Categories
@@ -52,6 +53,19 @@ Thank you for wanting to make FakerPress better for everyone! [We salute you](ht
 [![Build Status](https://travis-ci.org/iryz/fakerpress.png?branch=master)](https://travis-ci.org/iryz/fakerpress)
 
 ## Changelog ##
+
+### 0.1.2 ###
+* New: Admin messages for all pages ([#10](https://github.com/iryz/fakerpress/issues/10))
+* New: Select Date range for Comments and Posts ([#11](https://github.com/iryz/fakerpress/issues/11))
+* New: Select Author sampling group for Posts ([#11](https://github.com/iryz/fakerpress/issues/11))
+* New: Roles sampling group for Users ([#13](https://github.com/iryz/fakerpress/issues/13))
+* New: Taxonomies sampling group for Terms ([#13](https://github.com/iryz/fakerpress/issues/13))
+* New: Selection of Post Type for Posts ([#13](https://github.com/iryz/fakerpress/issues/13))
+* New: Selection of Terms sampling group for Posts ([#13](https://github.com/iryz/fakerpress/issues/13))
+* Tweak: Select2 usage to improve fields ([#13](https://github.com/iryz/fakerpress/issues/13))
+* Fix: `admin_title` been overwritten ([#14](https://github.com/iryz/fakerpress/issues/14))
+
+**Props**: [bordoni](http://profiles.wordpress.org/bordoni/), [luancuba](http://profiles.wordpress.org/luancuba/),
 
 ### 0.1.1 ###
 * Fatal Error gerated by a missing file Carbon related fixed
