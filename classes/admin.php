@@ -348,7 +348,7 @@ Class Admin {
 		// Enqueue DatePicker Skins
 		wp_enqueue_style( 'fakerpress.jquery-ui-theme' );
 		wp_enqueue_style( 'fakerpress.datepicker' );
-		
+
 
 		// Enqueue plugin CSS
 		wp_enqueue_style( 'fakerpress.messages' );
@@ -508,6 +508,6 @@ Class Admin {
 			return $text;
 		}
 
-		return esc_attr_( 'Version' ) . ': ' . '<a title="' . __( 'View what changed in this version', 'fakerpress' ) . '" href="' . esc_url( Plugin::admin_url( 'view=changelog&version=' . esc_attr( Plugin::version ) ) ) . '">' . esc_attr( Plugin::version ) . '</a>';
+		return esc_attr__( 'Version' ) . ': ' . '<a title="' . __( 'View what changed in this version', 'fakerpress' ) . '" href="' . esc_url( Plugin::admin_url( 'view=changelog&version=' . esc_attr( Plugin::version ) ) ) . '">' . esc_attr( Plugin::version ) . '</a>';
 	}
 }
