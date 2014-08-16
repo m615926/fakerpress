@@ -1,8 +1,16 @@
+<?php
+namespace FakerPress;
+
+// Mount the carbon values for dates
+$_json_date_selection_output = Dates::get_intervals();
+
+?>
+
 <div class='wrap'>
-	<h2><?php echo esc_attr( \FakerPress\Admin::$view->title ); ?></h2>
+	<h2><?php echo esc_attr( Admin::$view->title ); ?></h2>
 
 	<form method='post'>
-		<?php wp_nonce_field( FakerPress\Plugin::$slug . '.request.' . FakerPress\Admin::$view->slug . ( isset( FakerPress\Admin::$view->action ) ? '.' . FakerPress\Admin::$view->action : '' ) ); ?>
+		<?php wp_nonce_field( Plugin::$slug . '.request.' . Admin::$view->slug . ( isset( Admin::$view->action ) ? '.' . Admin::$view->action : '' ) ); ?>
 		<table class="form-table" style="display: table;">
 			<tbody>
 				<tr>
@@ -15,16 +23,21 @@
 					</td>
 				</tr>
 				<tr>
-					<th scope="row"><label for="fakerpress_max_date"><?php _e( 'Date', 'fakerpress' ); ?></label></th>
+					<th scope="row"><label for="fakerpress_interval_date"><?php _e( 'Date', 'fakerpress' ); ?></label></th>
 					<td>
-						<div id="fakerpress-min-date">
-							<input style='width: 150px;' class='field-datepicker' type='text' max='25' min='1' placeholder='<?php esc_attr_e( 'dd/mm/aaaa', 'fakerpress' ); ?>' value='' name='fakerpress_min_date' />
+						<div class='fakerpress-range-group'>
+							<select id="fakerpress_interval_date" class='field-date-selection' data-placeholder='<?php esc_attr_e( 'Select an Interval', 'fakerpress' ); ?>' style="margin-right: 5px; margin-top: -4px;">
+								<option></option>;
+								<?php foreach ($_json_date_selection_output as $option) { ?>
+								<option data-min="<?php echo date( 'm/d/Y', strtotime( $option['min'] ) ); ?>" data-max="<?php echo date( 'm/d/Y', strtotime( $option['max'] ) ); ?>" value="<?php echo $option['text']; ?>"><?php echo $option['text']; ?></option>
+								<?php } ?>
+							</select>
+
+							<input style='width: 150px;' class='field-datepicker field-min-date' type='text' placeholder='<?php esc_attr_e( 'mm/dd/yyyy', 'fakerpress' ); ?>' value='' name='fakerpress_min_date' />
+							<div class="dashicons dashicons-arrow-right-alt2 dashicon-date" style="display: inline-block;"></div>
+							<input style='width: 150px;' class='field-datepicker field-max-date' type='text' placeholder='<?php esc_attr_e( 'mm/dd/yyyy', 'fakerpress' ); ?>' value='' name='fakerpress_max_date' />
 						</div>
-						<div class="dashicons dashicons-arrow-right-alt2 dashicon-date"></div>
-						<div id="fakerpress-max-date">
-							<input style='width: 150px;' class='field-datepicker' type='text' max='25' min='1' placeholder='<?php esc_attr_e( 'dd/mm/aaaa', 'fakerpress' ); ?>' value='' name='fakerpress_max_date' />
-						</div>
-						<p class="description-date"><?php _e( 'Choose the range for the comments dates.', 'fakerpress' ); ?></p>
+						<p class="description-date description"><?php _e( 'Choose the range for the posts dates.', 'fakerpress' ); ?></p>
 					</td>
 				</tr>
 			</tbody>

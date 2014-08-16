@@ -2,9 +2,6 @@
 ( function( $ ){
 	'use strict';
 	$(document).ready(function(){
-		
-		$('.field-datepicker').datepicker();
-
 		$( '.field-select2-simple' ).each(function(){
 			var $select = $(this);
 
@@ -16,6 +13,48 @@
 				}
 			});
 		});
+
+		$( '.field-date-selection' ).each(function(){
+			var $select = $(this);
+			$select.select2({ width: 200 });
+		});
+	});
+}( jQuery ) );
+
+// Date Fields
+( function( $ ){
+	'use strict';
+	$(document).ready(function(){
+		$( '.field-datepicker' ).datepicker( {
+			constrainInput: false
+		} );
+
+		var $min = $( '.field-min-date' ),
+			$max = $( '.field-max-date' ),
+			$intervals = $('.fakerpress-range-group').each(function(){
+				var $interval = $(this).on({
+					'change': function(e){
+						var $this = $( this ),
+							$minField = $interval.find( '.field-min-date' ),
+							$maxField = $interval.find( '.field-max-date' ),
+							min = $this.find(':selected').data('min'),
+							max = $this.find(':selected').data('max');
+
+						$minField.datepicker( 'option', 'maxDate', min ).val( min );
+						$maxField.datepicker( 'option', 'minDate', max ).val( max );
+					}
+				})
+			})
+		$min.on({
+			'change': function(e){
+				$( this ).next( $max ).datepicker( 'option', 'minDate', $( this ).val() );
+			}
+		}),
+		$max.on({
+			'change': function(e){
+				$( this ).next( $min ).datepicker( 'option', 'maxDate', $( this ).val() );
+			}
+		})
 	});
 }( jQuery ) );
 

@@ -3,7 +3,7 @@
  * Plugin Name:       FakerPress
  * Plugin URI:        https://github.com/iryz/fakerpress
  * Description:       FakerPress is a clean way to generate fake data to your WordPress instalation, great for developers who need testing
- * Version:           0.1.3
+ * Version:           0.1.4
  * Author:            Iryz
  * Author URI:        http://iryz.org
  * Text Domain:       fakerpress
@@ -28,7 +28,9 @@ define( '__FP_FILE__', __FILE__ );
  */
 
 function _fp_l10n() {
-	load_plugin_textdomain( 'fakerpress', false, 'fakerpress' . DIRECTORY_SEPARATOR . 'l10n' );
+	// Doing that to use the real folder that the plugin is living, not a static string
+	$plugin_folder = str_replace( DIRECTORY_SEPARATOR . basename( __FILE__ ), '', plugin_basename( __FP_FILE__ ) );
+	load_plugin_textdomain( 'fakerpress', false, $plugin_folder . DIRECTORY_SEPARATOR . 'l10n' . DIRECTORY_SEPARATOR );
 }
 add_action( 'plugins_loaded', '_fp_l10n' );
 

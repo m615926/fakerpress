@@ -1,7 +1,9 @@
 <?php
-
 namespace FakerPress;
 
+use Carbon\Carbon;
+
+// Mounte the options for Users
 $users = get_users(
 	array(
 		'blog_id' => $GLOBALS['blog_id'],
@@ -18,6 +20,7 @@ foreach ( $users as $user ) {
 	);
 }
 
+// Mount the options for taxonomies
 $taxonomies = get_taxonomies( array( 'public' => true ), 'object' );
 
 $_json_taxonomies_output = array();
@@ -28,14 +31,13 @@ foreach ( $taxonomies as $key => $taxonomy ) {
 	);
 }
 
-
+// Mount the options for post_types
 $post_types = get_post_types( array( 'public' => true ), 'object' );
 
 // Exclude Attachments as we don't support images yet
 if ( isset( $post_types['attachment'] ) ){
 	unset( $post_types['attachment'] );
 }
-
 
 $_json_post_types_output = array();
 foreach ( $post_types as $key => $post_type ) {
@@ -44,6 +46,21 @@ foreach ( $post_types as $key => $post_type ) {
 		'text' => $post_type->labels->name,
 	);
 }
+
+// Mount the carbon values for dates
+$_json_date_selection_output = Dates::get_intervals();
+
+// Mount the options for the `comment_status`
+$_json_comment_status_output = array(
+	array(
+		'id' => 'open',
+		'text' => esc_attr__( 'Allow Comments', 'fakerpress' ),
+	),
+	array(
+		'id' => 'closed',
+		'text' => esc_attr__( 'Comments closed', 'fakerpress' ),
+	),
+);
 ?>
 <div class='wrap'>
 	<h2><?php echo esc_attr( Admin::$view->title ); ?></h2>
@@ -71,6 +88,15 @@ foreach ( $post_types as $key => $post_type ) {
 					</td>
 				</tr>
 				<tr>
+					<th scope="row"><label for="fakerpress_comment_status"><?php _e( 'Comments Status', 'fakerpress' ); ?></label></th>
+					<td>
+						<div id="fakerpress[comment_status]">
+							<input type='hidden' class='field-select2-simple' name='fakerpress_comment_status' data-possibilities='<?php echo json_encode( $_json_comment_status_output ); ?>' />
+						</div>
+						<p class="description"><?php _e( 'Sampling group of options for the comment status of the posts', 'fakerpress' ); ?></p>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row"><label for="fakerpress_taxonomies"><?php _e( 'Taxonomies', 'fakerpress' ); ?></label></th>
 					<td>
 						<div id="fakerpress[taxonomies]">
@@ -80,16 +106,21 @@ foreach ( $post_types as $key => $post_type ) {
 					</td>
 				</tr>
 				<tr>
-					<th scope="row"><label for="fakerpress_max_date"><?php _e( 'Date', 'fakerpress' ); ?></label></th>
+					<th scope="row"><label for="fakerpress_interval_date"><?php _e( 'Date', 'fakerpress' ); ?></label></th>
 					<td>
-						<div id="fakerpress-min-date">
-							<input style='width: 150px;' class='field-datepicker' type='text' max='25' min='1' placeholder='<?php esc_attr_e( 'dd/mm/aaaa', 'fakerpress' ); ?>' value='' name='fakerpress_min_date' />
+						<div class='fakerpress-range-group'>
+							<select id="fakerpress_interval_date" class='field-date-selection' data-placeholder='<?php esc_attr_e( 'Select an Interval', 'fakerpress' ); ?>' style="margin-right: 5px; margin-top: -4px;">
+								<option></option>;
+								<?php foreach ($_json_date_selection_output as $option) { ?>
+								<option data-min="<?php echo date( 'm/d/Y', strtotime( $option['min'] ) ); ?>" data-max="<?php echo date( 'm/d/Y', strtotime( $option['max'] ) ); ?>" value="<?php echo $option['text']; ?>"><?php echo $option['text']; ?></option>
+								<?php } ?>
+							</select>
+
+							<input style='width: 150px;' class='field-datepicker field-min-date' type='text' placeholder='<?php esc_attr_e( 'mm/dd/yyyy', 'fakerpress' ); ?>' value='' name='fakerpress_min_date' />
+							<div class="dashicons dashicons-arrow-right-alt2 dashicon-date" style="display: inline-block;"></div>
+							<input style='width: 150px;' class='field-datepicker field-max-date' type='text' placeholder='<?php esc_attr_e( 'mm/dd/yyyy', 'fakerpress' ); ?>' value='' name='fakerpress_max_date' />
 						</div>
-						<div class="dashicons dashicons-arrow-right-alt2 dashicon-date"></div>
-						<div id="fakerpress-max-date">
-							<input style='width: 150px;' class='field-datepicker' type='text' max='25' min='1' placeholder='<?php esc_attr_e( 'dd/mm/aaaa', 'fakerpress' ); ?>' value='' name='fakerpress_max_date' />
-						</div>
-						<p class="description-date"><?php _e( 'Choose the range for the posts dates.', 'fakerpress' ); ?></p>
+						<p class="description-date description"><?php _e( 'Choose the range for the posts dates.', 'fakerpress' ); ?></p>
 					</td>
 				</tr>
 				<tr>
