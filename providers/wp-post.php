@@ -15,9 +15,9 @@ class WP_Post extends Base {
 		return $title;
 	}
 
-	public function post_content( $html = true ) {
+	public function post_content( $html = true, $args = array() ) {
 		if ( $html === true ){
-			$content = implode( "\n", $this->generator->html_elements() );
+			$content = implode( "\n", $this->generator->html_elements( $args ) );
 		} else {
 			$content = implode( "\r\n\r\n", $this->generator->paragraphs( $this->generator->randomDigitNotNull() ) );
 		}
@@ -51,7 +51,8 @@ class WP_Post extends Base {
 
 	public function post_type( $haystack = array() ){
 		if ( empty( $haystack ) ){
-			$haystack = get_post_types( array(), 'names' );
+			// Later on we will remove the Attachment rule
+			$haystack = array_diff( get_post_types( array( 'public' => true, 'show_ui' => true ), 'names' ), array( 'attachment' ) );
 		}
 
 		return $this->generator->randomElement( (array) $haystack );
@@ -77,6 +78,10 @@ class WP_Post extends Base {
 		}
 
 		return $this->generator->randomElement( (array) $haystack );
+	}
+
+	public function post_parent( $haystack = array(), $rate = 70 ){
+		return $this->generator->numberBetween( 0, 100 ) < absint( $rate ) ? 0 : $this->generator->randomElement( (array) $haystack );
 	}
 
 	public function ping_status( $haystack = array() ){
