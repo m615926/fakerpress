@@ -12,11 +12,9 @@ abstract class Base {
 
 	public static $instance = null;
 
-	public $args = array();
-
 	public $params = array();
 
-	public $settings = array();
+	public $meta = array();
 
 	public $faked = array();
 
@@ -24,15 +22,13 @@ abstract class Base {
 
 	public $provider = null;
 
-	final public function __construct( $settings = array() ) {
+	final public function __construct() {
 		$reflection = new \ReflectionClass( get_called_class() );
 
 		$this->slug  = strtolower( $reflection->getShortName() );
 		$this->faker = \Faker\Factory::create();
 
 		$this->flag = apply_filters( 'fakerpress.modules_flag', 'fakerpress_flag' );
-
-		$this->settings = (array) apply_filters( "fakerpress.module.{$this->slug}.settings", wp_parse_args( $this->settings, $settings ) );
 
 		$this->provider = (string) apply_filters( "fakerpress.module.{$this->slug}.provider", $this->provider );
 
@@ -59,48 +55,93 @@ abstract class Base {
 
 		// Execute a method that can be overwritten by the called class
 		$this->init();
-	}
 
-	final public function __get( $name ){
-		return $this->faker->$name;
-	}
-
-	final public function __call( $name, $arguments ){
-		return call_user_func_array( array( $this->faker, $name ), $arguments );
-	}
-
-	final public static function __callStatic( $name, $arguments ){
-		$_class = get_called_class();
-		null === self::$instance and self::$instance = new $_class();
-		return call_user_func_array( array( self::$instance->faker, $name ), $arguments );
+		$this->meta( $this->flag, 'randomElement', array( array( 1 ) ) );
 	}
 
 	/**
 	 * Method that will be called from the construct which is a final function
 	 * @return null
 	 */
-	public function init() {
-		return;
-	}
+	abstract public function init();
 
 	/**
 	 * Use this method to save the fake data to the database
 	 * @return int|bool|WP_Error Should return an error, or the $wpdb->insert_id or bool for the state
 	 */
-	abstract public function save();
+	final public function save(){
+		do_action( "fakerpress.module.{$this->slug}.pre_save", $this );
+
+		$params = array();
+		foreach ( $this->params as $param ) {
+			$params[ $param->key ] = $param->value;
+		}
+
+		$metas = false;
+		if ( is_array( $this->meta ) ){
+			$metas = array();
+			foreach ( $this->meta as $meta ) {
+				$metas[ $meta->key ] = $meta->value;
+			}
+		}
+
+		return apply_filters( "fakerpress.module.{$this->slug}.save", false, $params, $metas, $this );
+	}
+
+	protected function apply( $item ){
+		if ( ! isset( $item->generator ) ){
+			return reset( $item->arguments );
+		}
+		return call_user_func_array( array( $this->faker, $item->generator ), ( isset( $item->arguments ) ? (array) $item->arguments : array() ) );
+	}
+
+	final public function meta( $key, $generator, $arguments = array() ){
+		// If there is no meta just leave
+		if ( ! is_array( $this->meta ) ){
+			return $this;
+		}
+
+		$this->meta[ $key ] = (object) array(
+			'key' => $key,
+			'generator' => $generator,
+			'arguments' => (array) $arguments,
+		);
+
+		return $this->meta[ $key ];
+	}
+
+	final public function param( $key, $arguments = array() ){
+		$this->params[ $key ] = (object) array(
+			'key' => $key,
+			'generator' => $key,
+			'arguments' => (array) $arguments,
+		);
+
+		return $this->params[ $key ];
+	}
 
 	/**
 	 * Use this method to generate all the needed data
 	 * @return array An array of the data generated
 	 */
 	public function generate( $args = array() ) {
-		$this->args = apply_filters( "fakerpress.module.{$this->slug}.args", wp_parse_args( $this->args, $args ) );
-
 		foreach ( $this->faked as $name ) {
-			$this->params[ $name ] = call_user_func_array( array( $this->faker, $name ), ( isset( $this->args[ $name ] ) ? (array) $this->args[ $name ] : array() ) );
+			if ( ! isset( $this->params[ $name ] ) ){
+				$this->params[ $name ] = (object) array(
+					'key' => $name,
+					'generator' => $name,
+					'arguments' => array(),
+				);
+			}
+			$this->params[ $name ]->value = $this->apply( $this->params[ $name ] );
+		}
+
+		if ( is_array( $this->meta ) ){
+			foreach ( $this->meta as $meta ) {
+				$this->meta[ $meta->key ]->value = $this->apply( $meta );
+			}
 		}
 
 		return $this;
 	}
-
 }

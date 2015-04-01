@@ -11,11 +11,20 @@ class Post extends Base {
 
 	public $provider = '\Faker\Provider\WP_Post';
 
-	public function save() {
-		$post_id = wp_insert_post( $this->params );
+	public function init() {
+		add_filter( "fakerpress.module.{$this->slug}.save", array( $this, 'do_save' ), 10, 4 );
+	}
 
-		// Relate this post to FakerPress to make it possible to delete
-		add_post_meta( $post_id, $this->flag, 1 );
+	public function do_save( $return_val, $params, $metas, $module ){
+		$post_id = wp_insert_post( $params );
+
+		if ( ! is_numeric( $post_id ) ){
+			return false;
+		}
+
+		foreach ( $metas as $key => $value ) {
+			update_post_meta( $post_id, $key, $value );
+		}
 
 		return $post_id;
 	}

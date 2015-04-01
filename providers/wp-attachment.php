@@ -1,12 +1,32 @@
 <?php
 namespace Faker\Provider;
 
-class WP_Post extends Base {
+class WP_Attachment extends Base {
+	public function post_type(){
+		return 'attachment';
+	}
 
 	protected static $default = array(
 		'ping_status' => array( 'closed', 'open' ),
 		'comment_status' => array( 'closed', 'open' ),
 	);
+
+	private static $type_defaults = array(
+		'placeholdit' => array(
+			'width' => array( 200, 640 ),
+			'ratio' => 1.25,
+		),
+	);
+
+	public function attachment_url( $type = 'placeholdit', $args = array() ){
+		$args = wp_parse_args( $args, self::$type_defaults[ $type ] );
+
+		if ( 'placeholdit' === $type ){
+			$url = call_user_func_array( array( $this->generator, 'placeholdit' ), (array) $args );
+		}
+
+		return $url;
+	}
 
 	public function post_title( $qty_words = 5 ) {
 		$title = $this->generator->sentence( $qty_words );
@@ -25,39 +45,6 @@ class WP_Post extends Base {
 		return $content;
 	}
 
-	public function tax_input( $taxonomies = null, $range = array( 1, 6 ) ) {
-		$output = array();
-
-		if ( is_null( $taxonomies ) ){
-			return $output;
-		}
-
-		foreach ( $taxonomies as $taxonomy ){
-			$terms = array_map( 'absint', get_terms( $taxonomy, array( 'fields' => 'ids', 'hide_empty' => false ) ) );
-
-			if ( is_array( $range ) ){
-				$qty = call_user_func_array( array( $this->generator, 'numberBetween' ), $range );
-			} else {
-				$qty = $range;
-			}
-
-			$qty = min( count( $terms ), $qty );
-
-			$output[ $taxonomy ] = $this->generator->randomElements( $terms , $qty );
-		}
-
-		return $output;
-	}
-
-	public function post_type( $haystack = array() ){
-		if ( empty( $haystack ) ){
-			// Later on we will remove the Attachment rule
-			$haystack = array_diff( get_post_types( array( 'public' => true, 'show_ui' => true ), 'names' ), array( 'attachment' ) );
-		}
-
-		return $this->generator->randomElement( (array) $haystack );
-	}
-
 	public function post_author( $haystack = array() ){
 		if ( empty( $haystack ) ){
 			$haystack = get_users(
@@ -72,12 +59,8 @@ class WP_Post extends Base {
 		return $this->generator->randomElement( (array) $haystack );
 	}
 
-	public function post_status( $haystack = array() ){
-		if ( empty( $haystack ) ){
-			$haystack = array_values( get_post_stati() );
-		}
-
-		return $this->generator->randomElement( (array) $haystack );
+	public function post_status(){
+		return 'inherit';
 	}
 
 	public function post_parent( $haystack = array(), $rate = 70 ){

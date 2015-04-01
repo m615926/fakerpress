@@ -8,7 +8,7 @@ class Plugin {
 	 * @since 0.1.0
 	 * @var string
 	 */
-	const version = '0.1.6';
+	const version = '0.2.0';
 
 	/**
 	 * A static variable that holds a dinamic instance of the class
@@ -25,6 +25,14 @@ class Plugin {
 	 * @var null|object The dynamic version of this class
 	 */
 	public static $admin = null;
+
+	/**
+	 * A static variable that holds a dinamic instance of the class of the AJAX methods
+	 *
+	 * @since 0.2.0
+	 * @var null|object The dynamic version of this class
+	 */
+	public static $ajax = null;
 
 	/**
 	 * Variable holding the folder name of the plugin
