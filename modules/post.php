@@ -51,28 +51,26 @@ class Post extends Base {
 		}
 
 		// After this point we are safe to say that we have a good POST request
-		$qty_min = absint( Filter::super( INPUT_POST, 'fakerpress_qty_min', FILTER_SANITIZE_NUMBER_INT ) );
+		$qty_min = absint( Filter::super( INPUT_POST, array( 'fakerpress', 'qty', 'min' ), FILTER_SANITIZE_NUMBER_INT ) );
+		$qty_max = absint( Filter::super( INPUT_POST, array( 'fakerpress', 'qty', 'max' ), FILTER_SANITIZE_NUMBER_INT ) );
 
-		$qty_max = absint( Filter::super( INPUT_POST, 'fakerpress_qty_max', FILTER_SANITIZE_NUMBER_INT ) );
+		$comment_status = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'comment_status' ), FILTER_SANITIZE_STRING ) ) );
 
-		$comment_status = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, 'fakerpress_comment_status', FILTER_SANITIZE_STRING ) ) );
+		$post_author = array_intersect( get_users( array( 'fields' => 'ID' ) ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'author' ) ) ) ) );
 
-		$post_author = array_intersect( get_users( array( 'fields' => 'ID' ) ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, 'fakerpress_author' ) ) ) );
+		$min_date = Filter::super( INPUT_POST, array( 'fakerpress', 'date', 'min' ) );
+		$max_date = Filter::super( INPUT_POST, array( 'fakerpress', 'date', 'max' ) );
 
-		$min_date = Filter::super( INPUT_POST, 'fakerpress_min_date' );
+		$post_types = array_intersect( get_post_types( array( 'public' => true ) ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'post_types' ), FILTER_SANITIZE_STRING ) ) ) );
+		$taxonomies = array_intersect( get_taxonomies( array( 'public' => true ) ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'taxonomies' ), FILTER_SANITIZE_STRING ) ) ) );
 
-		$max_date = Filter::super( INPUT_POST, 'fakerpress_max_date' );
+		$post_content_use_html = Filter::super( INPUT_POST, array( 'fakerpress', 'use_html' ), FILTER_SANITIZE_STRING, 'off' ) === 'on';
+		$post_content_html_tags = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'html_tags' ), FILTER_SANITIZE_STRING ) ) );
 
-		$post_types = array_intersect( get_post_types( array( 'public' => true ) ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, 'fakerpress_post_types', FILTER_SANITIZE_STRING ) ) ) );
+		$post_parents = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'post_parent' ), FILTER_SANITIZE_STRING ) ) );
 
-		$taxonomies = array_intersect( get_taxonomies( array( 'public' => true ) ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, 'fakerpress_taxonomies', FILTER_SANITIZE_STRING ) ) ) );
-
-		$post_content_use_html = Filter::super( INPUT_POST, 'fakerpress_post_content_use_html', FILTER_SANITIZE_STRING, 'off' ) === 'on';
-		$post_content_html_tags = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, 'fakerpress_post_content_html_tags', FILTER_SANITIZE_STRING ) ) );
-
-		$post_parents = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, 'fakerpress_post_parents', FILTER_SANITIZE_STRING ) ) );
-
-		$featured_image_rate = absint( Filter::super( INPUT_POST, 'fakerpress_featured_image_rate', FILTER_SANITIZE_NUMBER_INT ) );
+		$featured_image_rate = absint( Filter::super( INPUT_POST, array( 'fakerpress', 'featured_image_rate' ), FILTER_SANITIZE_NUMBER_INT ) );
+		$images_origin = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'images_origin' ), FILTER_SANITIZE_STRING ) ) );
 
 		$attach_module = Attachment::instance();
 
@@ -92,7 +90,7 @@ class Post extends Base {
 
 		for ( $i = 0; $i < $quantity; $i++ ) {
 			if ( $this->faker->numberBetween( 0, 100 ) <= $featured_image_rate ){
-				$attach_module->param( 'attachment_url', 'placeholdit' );
+				$attach_module->param( 'attachment_url', $this->faker->randomElement( $images_origin ) );
 				$attach_module->generate();
 				$attachment_id = $attach_module->save();
 				$this->meta( '_thumbnail_id', null, $attachment_id );

@@ -1,6 +1,11 @@
 <?php
 namespace FakerPress;
 
+// If this file is called directly, abort.
+if ( ! defined( 'WPINC' ) ){
+	die;
+}
+
 class Plugin {
 	/**
 	 * Plugin version, used for cache-busting of style and script file references.
@@ -8,7 +13,7 @@ class Plugin {
 	 * @since 0.1.0
 	 * @var string
 	 */
-	const version = '0.2.1';
+	const version = '0.2.2';
 
 	/**
 	 * A static variable that holds a dinamic instance of the class
@@ -124,6 +129,52 @@ class Plugin {
 			$_file = $_link . '/' . end( explode( '/', $_file ) );
 		}
 		return (string) plugin_basename( $_file );
+	}
+
+	public static function get( $name, $default = false ){
+		$options = self::all();
+		$value = Filter::search( $options, $name );
+
+		if ( is_null( $value ) ){
+			return $default;
+		}
+
+		return $value;
+	}
+
+	public static function update( $name = null, $value = false ){
+		$options = self::all();
+		$opts = array();
+
+		foreach ( (array) $name as $k => $index ) {
+			if ( 0 === $k ){
+				$opts[-1] = &$options;
+			}
+
+			if ( count( $name ) - 1 !== $k && ! isset( $opts[ $k - 1 ][ $index ] ) ){
+				$opts[ $k - 1 ][ $index ] = array();
+			}
+
+			if ( isset( $opts[ $k - 1 ][ $index ] ) ){
+				$opts[ $k ] = &$opts[ $k - 1 ][ $index ];
+			} else {
+				$opts[ $k - 1 ][ $index ] = $value;
+			}
+		}
+		$opts[ $k ] = $value;
+
+		return update_option( self::$slug . '-plugin-options' , $options );
+	}
+
+	public static function remove( $name = null ){
+		// Essa TODO
+	}
+
+	public static function all(){
+		$defaults = array();
+		$options = get_option( self::$slug . '-plugin-options', $defaults );
+
+		return $options;
 	}
 
 	/**

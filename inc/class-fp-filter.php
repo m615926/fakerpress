@@ -1,8 +1,13 @@
 <?php
+namespace FakerPress;
+
+// If this file is called directly, abort.
+if ( ! defined( 'WPINC' ) ){
+	die;
+}
 /**
  * @see https://github.com/x-team/wp-stream		We forked this idea from X-Team's Stream Plugin
  */
-namespace FakerPress;
 
 class Filter {
 
@@ -32,7 +37,28 @@ class Filter {
 		FILTER_UNSAFE_RAW                  => null,
 	);
 
-	public static function super( $type, $variable_name, $filter = null, $options = array() ) {
+	public static function search( $variable = null, $indexes = array() ) {
+		if ( is_object( $variable ) ){
+			$variable = (array) $variable;
+		}
+
+		if ( ! is_array( $variable ) ){
+			return $variable;
+		}
+
+		foreach ( (array) $indexes as $index ) {
+			if ( is_array( $variable ) && isset( $variable[ $index ] ) ){
+				$variable = $variable[ $index ];
+			} else {
+				$variable = null;
+				break;
+			}
+		}
+
+		return $variable;
+	}
+
+	public static function super( $type, $variable, $filter = null, $options = array() ) {
 		$super = null;
 
 		switch ( $type ) {
@@ -57,7 +83,7 @@ class Filter {
 			throw new Exception( __( 'Invalid use, type must be one of INPUT_* family.', 'fakerpress' ) );
 		}
 
-		$var = isset( $super[ $variable_name ] ) ? $super[ $variable_name ] : null;
+		$var = self::search( $super, $variable );
 		$var = self::filter( $var, $filter, $options );
 
 		return $var;
