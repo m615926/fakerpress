@@ -2,37 +2,44 @@
 namespace FakerPress;
 
 $fields[] = new Field(
+	'range',
 	'qty',
 	array(
-		'type' => 'range',
 		'label' => __( 'Quantity', 'fakerpress' ),
 		'description' => __( 'How many users should be generated, use both fields to get a randomized number of users within the given range.', 'fakerpress' ),
 	)
 );
 
 $fields[] = new Field(
-	'use_html',
+	'checkbox',
 	array(
-		'type' => 'boolean',
-		'label' => __( 'Use HTML', 'fakerpress' ),
-		'info' => __( 'Use HTML on your randomized user description?', 'fakerpress' ),
+		'id' => 'use_html',
+		'options' => array(
+			array(
+				'text' => __( 'Use HTML on your randomized user description?', 'fakerpress' ),
+				'value' => 1,
+			),
+		),
 		'value' => 1,
+	),
+	array(
+		'label' => __( 'Use HTML', 'fakerpress' ),
 	)
 );
 
 $_elements = array_merge( array( 'h3', 'h4', 'h5', 'h6', 'p' ) );
 $fields[] = new Field(
-	'html_tags',
+	'dropdown',
 	array(
-		'type' => 'dropdown',
+		'id' => 'html_tags',
 		'multiple' => true,
+		'data-options' => $_elements,
+		'data-tags' => true,
+		'value' => implode( ',', $_elements ),
+	),
+	array(
 		'label' => __( 'HTML tags', 'fakerpress' ),
 		'description' => __( 'Select the group of tags that can be selected to print on the User Description.', 'fakerpress' ),
-		'attributes' => array(
-			'class' => 'field-select2-tags',
-			'data-tags' => $_elements,
-		),
-		'value' => implode( ',', $_elements ),
 	)
 );
 
@@ -47,18 +54,28 @@ foreach ( $roles as $role_name => $role_data ) {
 }
 
 $fields[] = new Field(
-	'roles',
+	'dropdown',
 	array(
-		'type' => 'dropdown',
+		'id' => 'roles',
 		'multiple' => true,
+		'data-options' => $_json_roles_output,
+	),
+	array(
 		'label' => __( 'Roles', 'fakerpress' ),
 		'description' => __( 'Sampling roles to be used', 'fakerpress' ),
-		'attributes' => array(
-			'data-possibilities' => $_json_roles_output,
-		),
 	)
 );
 
+$fields[] = new Field(
+	'meta',
+	array(
+		'id' => 'meta',
+	),
+	array(
+		'label' => __( 'Meta Field Rules', 'fakerpress' ),
+		'description' => __( 'Use the fields below to configure a set of rules for your generated users', 'fakerpress' ),
+	)
+);
 ?>
 <div class='wrap'>
 	<h2><?php echo esc_attr( Admin::$view->title ); ?></h2>

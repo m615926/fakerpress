@@ -58,13 +58,13 @@ class Post extends Base {
 
 		$post_author = array_intersect( get_users( array( 'fields' => 'ID' ) ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'author' ) ) ) ) );
 
-		$min_date = Filter::super( INPUT_POST, array( 'fakerpress', 'date', 'min' ) );
-		$max_date = Filter::super( INPUT_POST, array( 'fakerpress', 'date', 'max' ) );
+		$min_date = Filter::super( INPUT_POST, array( 'fakerpress', 'interval_date', 'min' ) );
+		$max_date = Filter::super( INPUT_POST, array( 'fakerpress', 'interval_date', 'max' ) );
 
 		$post_types = array_intersect( get_post_types( array( 'public' => true ) ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'post_types' ), FILTER_SANITIZE_STRING ) ) ) );
 		$taxonomies = array_intersect( get_taxonomies( array( 'public' => true ) ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'taxonomies' ), FILTER_SANITIZE_STRING ) ) ) );
 
-		$post_content_use_html = Filter::super( INPUT_POST, array( 'fakerpress', 'use_html' ), FILTER_SANITIZE_STRING, 'off' ) === 'on';
+		$post_content_use_html = Filter::super( INPUT_POST, array( 'fakerpress', 'use_html' ), FILTER_SANITIZE_NUMBER_INT, 0 ) === 1;
 		$post_content_html_tags = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'html_tags' ), FILTER_SANITIZE_STRING ) ) );
 
 		$post_parents = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'post_parent' ), FILTER_SANITIZE_STRING ) ) );
@@ -72,7 +72,10 @@ class Post extends Base {
 		$featured_image_rate = absint( Filter::super( INPUT_POST, array( 'fakerpress', 'featured_image_rate' ), FILTER_SANITIZE_NUMBER_INT ) );
 		$images_origin = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'images_origin' ), FILTER_SANITIZE_STRING ) ) );
 
+		$metas = Filter::super( INPUT_POST, array( 'fakerpress', 'meta' ), FILTER_UNSAFE_RAW );
+
 		$attach_module = Attachment::instance();
+		$meta_module = Meta::instance();
 
 		if ( 0 === $qty_min ){
 			return Admin::add_message( sprintf( __( 'Zero is not a good number of %s to fake...', 'fakerpress' ), 'posts' ), 'error' );
@@ -106,8 +109,15 @@ class Post extends Base {
 			$this->param( 'comment_status', $comment_status );
 
 			$this->generate();
+			$post_id = $this->save();
 
-			$results->all[] = $this->save();
+			if ( $post_id && is_numeric( $post_id ) ){
+				foreach ( $metas as $meta_index => $meta ) {
+					$meta_module->object( $post_id )->build( $meta['type'], $meta['name'], $meta )->save();
+				}
+			}
+
+			$results->all[] = $post_id;
 		}
 
 		$results->success = array_filter( $results->all, 'absint' );

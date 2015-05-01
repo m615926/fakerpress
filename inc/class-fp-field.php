@@ -6,152 +6,110 @@ if ( ! defined( 'WPINC' ) ){
 	die;
 }
 
-/**
- * helper class that creates fields for use in Settings, MetaBoxes, Users, anywhere.
- * Instantiate it whenever you need a field
- *
- */
 class Field {
 
-	/**
-	 * the field's id
-	 * @var string
-	 */
+	const plugin = 'fakerpress';
+	const abbr = 'fp';
+
+	public static function abbr( $str = '' ){
+		return self::abbr . '-' . $str;
+	}
+
+	public $type = 'raw';
+
 	public $id;
 
-	/**
-	 * the field's name (also known as it's label)
-	 * @var string
-	 */
-	public $name;
+	public $field;
 
-	/**
-	 * the field's name (also known as it's label)
-	 * @var string
-	 */
-	public $type;
+	public $container;
 
-	/**
-	 * the field's attributes
-	 * @var array
-	 */
-	public $attributes;
+	public $has_container = true;
 
-	/**
-	 * the field's arguments
-	 * @var array
-	 */
-	public $args;
+	public $has_wrap = true;
 
-	/**
-	 * field defaults (static)
-	 * @var array
-	 */
-	public static $defaults = array(
-		'type' => 'html',
-		'name' => null,
+	public static $default_container = array(
+		'label' => '',
+		'description' => '',
 		'attributes' => array(),
 		'actions' => array(),
-		'label' => null,
-		'tooltip' => null,
-		'size' => 'medium',
-		'html' => null,
-		'raw' => false,
-		'value' => null,
-		'options' => null,
-		'conditional' => true,
-		'callback' => null,
-		'if_empty' => null,
-		'can_be_empty' => false,
-		'structure' => 'table',
-		'after' => null,
+		'heads' => array(),
+		'class' => array(),
+		'wrap' => array(
+			'class' => array()
+		),
+		'blocks' => array( 'label', 'fields', 'description', 'actions' ),
 	);
 
-	/**
-	 * valid field types (static)
-	 * @var array
-	 */
 	public static $valid_types = array(
 		'heading',
-		'html',
+		'input',
 		'text',
-		'textarea',
-		'wysiwyg',
-		'radio',
-		'boolean',
-		'checkbox',
 		'dropdown',
 		'range',
 		'interval',
+		'number',
+		'hidden',
+		'meta',
+		// 'textarea',
+		// 'wysiwyg',
+		'radio',
+		'checkbox',
+		'raw',
 	);
 
-	public static $sanitize = array(
-		'type' => 'esc_attr',
-		'name' => 'esc_attr',
-		'label' => 'wp_kses_post',
-		'tooltip' => 'wp_kses_post',
-	);
-
-	/**
-	 * Class constructor
-	 *
-	 * @param string     $id    the field id
-	 * @param array      $field the field settings
-	 * @param null|mixed $value the field's current value
-	 *
-	 * @return void
-	 */
-	public function __construct( $id, $args ) {
-		// a list of valid field types, to prevent screwy behaviour
-		self::$valid_types = apply_filters( 'fakerpress/fields-valid_types', self::$valid_types );
-
-		// parse args with defaults and extract them
-		$this->args = (object) wp_parse_args( $args, self::$defaults );
-
-		// sanitize the values just to be safe
-		foreach ( self::$sanitize as $key => $method ) {
-			$this->args->{$key} = call_user_func_array( $method, array( $this->args->{$key} ) );
-		}
-
-		// set the ID
-		$this->id = apply_filters( 'fakerpress/field-id', esc_attr( $id ), $this );
-		$this->type = apply_filters( 'fakerpress/field-type', esc_attr( $this->args->type ), $this );
-		$this->name = apply_filters( 'fakerpress/field-name', ( ! empty( $this->args->name ) ? esc_attr( $this->args->name ) : esc_attr( $id ) ), $this );
-		$this->value = $this->args->value;
-		$this->attributes = $this->args->attributes;
-
-		unset( $this->args->name, $this->args->type, $this->args->value, $this->args->attributes );
-
+	public function __construct( $type, $field, $container = array() ) {
 		// Default Error Structure
 		$this->error = false;
 
-		if ( ! in_array( $this->type, self::$valid_types ) ){
-			return;
+		// Non Valid types are just set to Raw
+		if ( ! self::is_valid_type( $type ) ){
+			$type = 'raw';
 		}
+
+		if ( is_string( $field ) ){
+			$this->field = (object) array(
+				'id' => $field,
+			);
+		} else {
+			// Setup the Container if required
+			$this->field = (object) $field;
+		}
+
+		$container = (object) wp_parse_args( $container, self::$default_container );
+
+		// set the ID
+		$this->type = $type;
+		if ( ! isset( $this->field->id ) ){
+			$this->id = (array) self::abbr( uniqid() );
+		} else {
+			$this->id = (array) $this->field->id;
+		}
+
+		$this->callback = null;
+		$this->conditional = true;
+
+		$this->label = $container->label;
+		$this->description = $container->description;
+		$this->actions = $container->actions;
+		$this->blocks = $container->blocks;
+		$this->class = $container->class;
+		$this->wrap = $container->wrap;
 	}
 
-	/**
-	 * Determines how to handle this field's creation
-	 * either calls a callback function or runs this class' course of action
-	 * logs an error if it fails
-	 *
-	 * @return void
-	 */
 	public function output( $print = false ) {
-		if ( ! $this->args->conditional ) {
+		if ( ! $this->conditional ) {
 			return false;
 		}
 
-		if ( $this->args->callback && is_callable( $this->args->callback ) ) {
+		if ( $this->callback && is_callable( $this->callback ) ) {
 			// if there's a callback, run it
-			call_user_func( $this->args->callback );
+			call_user_func( $this->callback );
 		} elseif ( in_array( $this->type, self::$valid_types ) ) {
 			// the specified type exists, run the appropriate method
-			$field = call_user_func_array( array( $this, $this->type ), array( $this->name, $this->value, $this->attributes ) );
+			$field = call_user_func_array( array( __CLASS__, 'type_' . $this->type ), array( $this->field, $this, 'string', array() ) );
 
 			// filter the output
-			$field = apply_filters( 'fakerpress/field-output-' . $this->type, $field, $this );
-			$field = apply_filters( 'fakerpress/field-output-' . $this->type . '_' . $this->id, $field, $this );
+			$field = apply_filters( self::plugin . '/fields/field-output-' . $this->type, $field, $this );
 
 			if ( $print ){
 				echo balanceTags( $field );
@@ -163,310 +121,1426 @@ class Field {
 		}
 	}
 
-	/**
-	 * returns the field's start
-	 *
-	 * @return string the field start
-	 */
-	public function start() {
-		$classes = array( 'fp-field', 'fp-field-' . $this->type . '-container' );
+	public function build( $content, $output = 'string', $html = array() ) {
+		$content = (array) $content;
+		$key = array_search( 'fields', $this->blocks );
 
-		if ( ! empty( $this->args->fieldset ) && is_array( $this->args->fieldset ) ){
-			$classes += array_map( '', $this->args->fieldset );
+		$before = array_filter( array_slice( $this->blocks, 0, $key ), 'is_array' );
+		$before_content = array();
+		foreach ( $before as $i => $block ) {
+			$_html = '';
+			if ( ! empty( $block['html'] ) ){
+				$_html = $block['html'];
+				unset( $block['html'] );
+			}
+			$before_content[] = '<td' . self::attr( $block ) . '>' . $_html . '</td>';
 		}
 
-		if ( ! empty( $this->args->size ) ){
-			$classes[] = 'fp-size-' . $this->args->size;
+		$after = array_filter( array_slice( $this->blocks, $key + 1, count( $this->blocks ) - ( $key + 1 ) ), 'is_array' );
+		$after_content = array();
+		foreach ( $after as $i => $block ) {
+			$_html = '';
+			if ( ! empty( $block['html'] ) ){
+				$_html = $block['html'];
+				unset( $block['html'] );
+			}
+			$after_content[] = '<td' . self::attr( $block ) . '>' . $_html . '</td>';
 		}
 
-		if ( is_wp_error( $this->error ) ){
-			$classes[] = 'fp-error';
+		if ( in_array( 'table', $this->blocks ) ){
+			$html[] = self::start_table( $this );
 		}
 
-		$return = '<tr id="' . $this->id( true ) . '" class="' . implode( ' ', $classes ) . '">';
+		$html[] = self::start_container( $this );
+		$html[] = implode( "\r\n", $before_content );
 
-		return apply_filters( 'fakerpress/field-start', $return, $this );
-	}
-
-	/**
-	 * returns the field's end
-	 *
-	 * @return string the field end
-	 */
-	public function end() {
-		$return = '</tr>';
-
-		return apply_filters( 'fakerpress/field-end', $return, $this );
-	}
-
-	/**
-	 * returns the field's label
-	 *
-	 * @return string the field label
-	 */
-	public function label() {
-		$html = '<th scope="row">';
-		$html .= $this->tooltip();
-
-		if ( isset( $this->args->label ) && false !== $this->args->label ) {
-			$html .= '<label class="fp-field-label" for="' . $this->id() . '">' . $this->args->label . '</label>';
+		if ( in_array( 'label', $this->blocks ) ){
+			$html[] = self::label( $this );
 		}
 
-		$html .= '</th>';
+		$html[] = self::start_wrap( $this );
+		$html[] = implode( "\r\n", $content );
+		$html[] = self::end_wrap( $this );
 
-		return apply_filters( 'fakerpress/field-label', $html, $this );
-	}
+		$html[] = implode( "\r\n", $after_content );
 
-	public function name( $indexes = array() ){
-		if ( empty( $indexes ) ){
-			$indexes = (array) $this->name;
-		}
-		return 'fakerpress[' . implode( '][', $indexes ) . ']';
-	}
+		$html[] = self::end_container( $this );
 
-	public function id( $container = false ){
-		return 'fakerpress-field-' . $this->id . ( $container ? '-container' : '' );
-	}
-
-	public function is_multiple(){
-		return (bool) ( isset( $this->args->multiple ) && $this->args->multiple ? true : false );
-	}
-
-	public function actions(){
-		$html = '';
-		foreach ( $this->args->actions as $action => $label ) {
-			$html .= get_submit_button( $label, 'primary', 'fakerpress[actions][' . $action . ']', false );
+		if ( in_array( 'table', $this->blocks ) ){
+			$html[] = self::end_table( $this );
 		}
 
-		return apply_filters( 'fakerpress/field-actions', $html, $this );
-	}
-
-	/**
-	 * returns the field's div start
-	 *
-	 * @return string the field div start
-	 */
-	public function wrap_start() {
-		if ( 'heading' === $this->type ){
-			$html = '<th colspan="2" class="fp-field-wrap">';
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
 		} else {
-			$html = '<td>';
-			$html .= '<fieldset class="fp-field-wrap">';
+			return $html;
 		}
-
-		return apply_filters( 'fakerpress/field-wrap_start', $html, $this );
 	}
 
-	/**
-	 * returns the field's div end
-	 *
-	 * @return string the field div end
-	 */
-	public function wrap_end() {
-		$html = '';
-		if ( 'heading' === $this->type ){
-			$html .= $this->description();
-			$html .= '</th>';
+	public static function start_table( $container, $output = 'string', $html = array() ) {
+		$html[] = self::type_heading( array(
+			'type' => 'heading',
+			'title' => $container->label,
+			'description' => $container->description,
+		), null, 'string' );
+
+		$html[] = '<table class="' . self::abbr( 'table-' . implode( '-', $container->id ) ) . '">';
+		if ( ! empty( $container->heads ) ){
+			$html[] = '<thead>';
+			foreach ( $container->heads as $head ) {
+				$_html = '';
+				if ( ! empty( $head['html'] ) ){
+					$_html = $head['html'];
+					unset( $head['html'] );
+				}
+				$html[] = '<th' . self::attr( $head ) . '>' . $_html . '</th>';
+			}
+			$html[] = '</thead>';
+		}
+		$html[] = '<tbody>';
+
+		$html = apply_filters( self::plugin . '/fields/field-start_table', $html, $container );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
 		} else {
-			$html .= $this->actions();
-			$html .= '</fieldset>';
-			$html .= $this->description();
-			$html .= '</td>';
+			return $html;
 		}
-		return apply_filters( 'fakerpress/field-wrap_end', $html, $this );
 	}
 
-	public function description(){
-		$html = '';
-		if ( ! empty( $this->args->description ) ) {
-			$html .= '<p class="fp-field-description">' . $this->args->description . '</p>';;
-		}
+	public static function end_table( $container, $output = 'string', $html = array() ) {
+		$html[] = '</tbody>';
+		$html[] = '</table>';
 
-		return apply_filters( 'fakerpress/field-description', $html, $this );
+		$html = apply_filters( self::plugin . '/fields/field-end_table', $html, $container );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
 	}
 
-	/**
-	 * returns the field's tooltip/description
-	 *
-	 * @return string the field tooltip
-	 */
-	public function tooltip() {
-		$html = '';
-		if ( ! empty( $this->args->tooltip ) ) {
-			$html = '<p class="tooltip description">' . $this->args->tooltip . '</p>';
+	public static function start_container( $container, $output = 'string', $html = array() ) {
+		if ( ! is_array( $container->class ) ){
+			$container->class = (array) $container->class;
+		}
+		$container->class[] = 'field-container';
+		$container->class[] = 'type-' . $container->type . '-container';
+
+		if ( is_wp_error( $container->error ) ){
+			$container->class[] = 'error';
 		}
 
-		return apply_filters( 'fakerpress/field-tooltip', $html, $this );
+		$container->class = array_map( array( __CLASS__, 'abbr' ) , $container->class );
+
+		if ( ! in_array( 'table' , $container->blocks ) ){
+			$html[] = '<tr id="' . self::id( $container->id, true ) . '" class="' . implode( ' ', $container->class ) . '">';
+		}
+
+		$html = apply_filters( self::plugin . '/fields/field-start_container', $html, $container );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
 	}
 
-	/**
-	 * returns the screen reader label
-	 *
-	 * @return string the screen reader label
-	 */
-	public function screenreader() {
-		$html = '';
-		if ( ! empty( $this->args->tooltip ) ) {
-			$html = '<label class="screen-reader-text">' . $this->args->tooltip . '</label>';
+	public static function end_container( $container, $output = 'string', $html = array() ) {
+		if ( ! in_array( 'table' , $container->blocks ) ){
+			$html[] = '</tr>';
 		}
 
-		return apply_filters( 'fakerpress/field-screenreader', $html, $this );
+		$html = apply_filters( self::plugin . '/fields/field-end_container', $html, $container );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
 	}
 
-	/**
-	 * Return a string of attributes for the field
-	 *
-	 * @return string
-	 **/
-	public function attributes( $attributes = null ) {
-		$html = '';
-		$defaults = array(
-			'id' => $this->id(),
-			'name' => $this->name(),
-		);
+	public static function wrapper( $content = array(), $field = array(), $output = 'string' ){
+		$attributes = (object) array();
+		$attributes->class[] = 'field-wrap';
+		$attributes->class[] = 'type-' . $field->type . '-wrap';
 
-		if ( is_null( $attributes ) ){
-			$attributes = $this->attributes;
+		$html = array();
+		if ( ! empty( $content ) ){
+			$html[] = '<fieldset' . self::attr( $attributes ) . '>';
+			$html[] = implode( "\r\n", (array) $content );
+			if ( ! empty( $field->label ) ){
+				$html[] = '<label class="' . self::abbr( 'internal-label' ) . '">' . $field->label . '</label>';
+			}
+			$html[] = '</fieldset>';
 		}
-		$attributes = wp_parse_args( $attributes, $defaults );
 
-		if ( ! empty( $attributes ) ) {
-			foreach ( $attributes as $key => $value ) {
-				if ( is_array( $value ) || is_object( $value ) ){
-					if ( 'class' !== $key ){
-						$value = htmlspecialchars( json_encode( $value ), ENT_QUOTES, 'UTF-8' );
-					} else {
-						$value = implode( ' ', $value );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function start_wrap( $container, $output = 'string', $html = array() ) {
+		$container->wrap['class'][] = 'field-wrap';
+		$container->wrap['class'][] = 'type-' . $container->type . '-wrap';
+		if ( in_array( 'fields', $container->blocks ) ){
+			$html[] = '<td colspan="1">';
+			$html[] = '<fieldset' . self::attr( $container->wrap ) . '>';
+		} elseif ( ! in_array( 'table' , $container->blocks ) ) {
+			$container->wrap['colspan'] = 2;
+			$html[] = '<td' . self::attr( $container->wrap ) . '>';
+		}
+
+		$html = apply_filters( self::plugin . '/fields/field-start_wrap', $html, $container );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function end_wrap( $container, $output = 'string', $html = array() ) {
+		if ( in_array( 'actions', $container->blocks ) ){
+			$html[] = self::actions( $container );
+		}
+
+		if ( in_array( 'fields', $container->blocks ) && ! in_array( 'table' , $container->blocks ) ){
+			$html[] = '</fieldset>';
+		}
+
+		if ( in_array( 'description', $container->blocks ) ){
+			$html[] = self::description( $container );
+		}
+		if ( ! in_array( 'table' , $container->blocks ) ){
+			$html[] = '</td>';
+		}
+
+		$html = apply_filters( self::plugin . '/fields/field-end_wrap', $html, $container );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function label( $container, $output = 'string', $html = array() ) {
+		$html[] = '<' . ( false !== strpos(  $container->type, 'meta' ) ? 'td' : 'th' ) . ' scope="row" colspan="1">';
+
+		if ( isset( $container->label ) && false !== $container->label ) {
+			$html[] = '<label class="' . self::abbr( 'field-label' ) . '" for="' . self::id( $container->id ) . '">' . $container->label . '</label>';
+		}
+
+		$html[] = '</' . ( false !== strpos(  $container->type, 'meta' ) ? 'td' : 'th' ) . '>';
+
+		$html = apply_filters( self::plugin . '/fields/field-label', $html, $container );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function actions( $container, $output = 'string', $html = array() ) {
+		if ( empty( $container->actions ) ) {
+			return ( 'string' === $output ? '' : array() );
+		}
+
+		$html[] = '<div class="' . self::abbr( 'actions' ) . '">';
+		foreach ( $container->actions as $action => $label ) {
+			$html[] = get_submit_button( $label, 'primary', self::plugin . '[actions][' . $action . ']', false );
+		}
+		$html[] = '</div>';
+
+		$html = apply_filters( self::plugin . '/fields/field-actions', $html, $container );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function description( $container, $output = 'string', $html = array() ) {
+		if ( ! empty( $container->description ) ) {
+			$html[] = '<p class="' . self::abbr( 'field-description' ) . '">' . $container->description . '</p>';;
+		}
+
+		$html = apply_filters( self::plugin . '/fields/field-description', $html, $container );
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+
+	/******************
+	 * Static methods *
+	 ******************/
+
+	public static function is_valid_type( $type = false ){
+		// a list of valid field types, to prevent screwy behaviour
+		return in_array( $type, apply_filters( self::plugin . '/fields/valid_types', self::$valid_types ) );
+	}
+
+	public static function name( $indexes = array() ){
+		return self::plugin . '[' . implode( '][', (array) $indexes ) . ']';
+	}
+
+	public static function id( $id = array(), $container = false ){
+		if ( ! is_array( $id ) ){
+			$id = (array) $id;
+		}
+		if ( $container ){
+			$id[] = 'container';
+		}
+		return self::plugin . '-field-' . implode( '-', (array) $id );
+	}
+
+	public static function attr( $attributes = array(), $html = array() ) {
+		if ( is_scalar( $attributes ) ){
+			return false;
+		}
+
+		$attributes = (array) $attributes;
+
+		foreach ( $attributes as $key => $value ) {
+			if ( is_null( $value ) || false === $value ){
+				continue;
+			}
+
+			if ( 'label' === $key ){
+				continue;
+			}
+
+			if ( '_' === substr( $key, 0, 1 ) ){
+				$key = substr_replace( $key, 'data-', 0, 1 );
+			}
+
+			if ( 'class' === $key && ! is_array( $value ) ){
+				$value = (array) $value;
+			}
+
+			$attr = $key;
+
+			if ( ! is_scalar( $value ) ) {
+				if ( 'class' === $key ){
+					$value = array_map( array( __CLASS__, 'abbr' ), (array) $value );
+					if ( in_array( 'fp-type-button', $value ) ){
+						$value[] = 'button';
 					}
-				} elseif ( false === $value ){
-					$html .= ' ' . $key;
-					continue;
+					$value = array_map( 'sanitize_html_class', $value );
+					$value = implode( ' ', $value );
+				} else {
+					$value = htmlspecialchars( json_encode( $value ), ENT_QUOTES, 'UTF-8' );
+				}
+			}
+			if ( ! is_bool( $value ) || true !== $value ){
+				$attr .= '="' . $value . '"';
+			}
+
+			$html[ $key ] = $attr;
+		}
+
+		return ' ' . implode( ' ', $html );
+	}
+
+	public static function parse( $field, &$container = null ){
+		if ( is_scalar( $field ) ){
+			if ( ! is_string( $field ) ){
+				return false;
+			}
+
+			$field = (object) array(
+				'type' => $field,
+			);
+		} elseif ( is_array( $field ) ){
+			$field = (object) $field;
+		}
+
+		if ( ! is_a( $container, __CLASS__ ) ){
+			$container = (object) wp_parse_args( $container, self::$default_container );
+		}
+		if ( ! isset( $container->id ) ) {
+			$container->id = (array) self::abbr( uniqid() );
+		}
+
+		$field = (object) wp_parse_args( $field, ( ! empty( $container->field ) ? $container->field : array() ) );
+
+		// Setup Private Attributes (_*)
+		if ( isset( $field->_id ) ){
+
+		} elseif ( empty( $field->id ) ){
+			$field->_id = (array) $container->id;
+		} else {
+			$field->_id = (array) $field->id;
+		}
+
+		if ( isset( $field->_name ) ){
+
+		} elseif ( ! isset( $field->name ) ){
+			$field->_name = (array) ( isset( $container->field->name ) ? $container->field->name : $field->_id );
+		} else {
+			$field->_name = (array) $field->name;
+		}
+
+		// Setup Public Attributes
+		if ( empty( $field->type ) ){
+			$field->type = $container->type;
+		}
+		$field->_type = $field->type;
+
+		$field->id = self::id( $field->_id );
+		$field->name = self::name( $field->_name );
+
+		switch ( $field->type ) {
+			case 'heading':
+				if ( ! isset( $field->title ) ){
+					$field->title = '';
 				}
 
-				$html .= ' ' . $key . '="' . $value . '"';
-			}
+				if ( ! isset( $field->description ) ){
+					$field->description = '';
+				}
+
+				$container->has_label = false;
+				$container->blocks = array( 'actions' );
+				break;
+			case 'meta':
+				if ( ! isset( $container->label ) ){
+					$container->label = '';
+				}
+
+				$container->has_label = false;
+				$container->blocks = array( 'actions' );
+				break;
+			case 'input':
+				# code...
+				break;
+			case 'text':
+				if ( empty( $field->size ) ){
+					$field->size = 'medium';
+				}
+				break;
+			case 'number':
+				if ( empty( $field->size ) ){
+					$field->size = 'tiny';
+				}
+				break;
+			case 'radio':
+			case 'checkbox':
+				unset( $field->size );
+
+				if ( ! isset( $field->options ) ){
+					$field->options = array();
+				}
+				$field->options = (array) $field->options;
+
+				break;
+			case 'dropdown':
+				if ( isset( $field->multiple ) && $field->multiple ){
+					$field->type = 'hidden';
+
+					if ( isset( $field->{'data-tags'} ) && true === $field->{'data-tags'} && empty( $field->{'data-separator'} ) ){
+						$field->{'data-separator'} = ',';
+					}
+				} else {
+					if ( ! isset( $field->options ) ){
+						$field->options = array();
+					}
+					$field->options = (array) $field->options;
+				}
+
+				break;
+			case 'interval':
+
+				break;
+			case 'date':
+				$field->type = 'text';
+				$field->size = 'small';
+				break;
 		}
 
-		return apply_filters( 'fakerpress/field-attributes', $html, $this->name, $this );
-	}
+		$field = apply_filters( self::plugin . '/fields/field', $field, $container );
+		$container = apply_filters( self::plugin . '/fields/container', $container, $field );
 
-	/**
-	 * generate a heading field
-	 *
-	 * @return string the field
-	 */
-	public function heading() {
+		$field = apply_filters( self::plugin . '/fields/field-' . $field->_type, $field, $container );
+		$container = apply_filters( self::plugin . '/fields/container-' . $field->_type, $container, $field );
 
-		$field = $this->start();
-		$field .= $this->wrap_start();
-		$field .= '<h3>' . $this->args->label . '</h3>';
-		$field .= $this->screenreader();
-		$field .= $this->wrap_end();
-		$field .= $this->end();
+		if ( ! empty( $field->class ) ){
+			$field->class = (array) $field->class;
+		}
+		$field->class[] = 'field';
+		$field->class[] = 'type-' . $field->_type;
 
-		return $field;
-	}
-
-	/**
-	 * generate an html field
-	 *
-	 * @return string the field
-	 */
-	public function html() {
-		$field = $this->label();
-		$field .= $this->html;
+		if ( ! empty( $field->size ) ){
+			$field->class[] = 'size-' . $field->size;
+		}
 
 		return $field;
 	}
 
+	/*****************
+	 * Field Methods *
+	 *****************/
 
-	/**
-	 * generate a simple text field
-	 *
-	 * @return string the field
-	 */
-	public function text( $name, $value = null, $attributes ) {
-		$defaults = array(
-			'type' => 'text',
+	public static function type_input( $field, $container = null, $output = 'string', $html = array() ) {
+		$field = self::parse( $field, $container );
+		if ( is_scalar( $field ) ){
+			return false;
+		}
+
+		$content[] = '<input' . self::attr( $field ) . '/>';
+
+		if ( is_a( $container, __CLASS__ ) ){
+			$html[] = $container->build( $content );
+		} else {
+			$html = $content;
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function type_button( $field, $container = null, $output = 'string', $html = array() ) {
+		return self::type_input( $field, $container, $output, $html );
+	}
+
+	public static function type_number( $field, $container = null, $output = 'string', $html = array() ) {
+		return self::type_input( $field, $container, $output, $html );
+	}
+
+	public static function type_text( $field, $container = null, $output = 'string', $html = array() ) {
+		return self::type_input( $field, $container, $output, $html );
+	}
+
+	public static function type_hidden( $field, $container = null, $output = 'string', $html = array() ) {
+		return self::type_input( $field, $container, $output, $html );
+	}
+
+	public static function type_date( $field, $container = null, $output = 'string', $html = array() ) {
+		return self::type_input( $field, $container, $output, $html );
+	}
+
+	public static function type_heading( $field, $container = null, $output = 'string', $html = array() ) {
+		$field = self::parse( $field, $container );
+		if ( is_scalar( $field ) ){
+			return false;
+		}
+
+		$content[] = '<h3>' . $field->title . '</h3>';
+
+		if ( ! empty( $field->description ) ){
+			$content[] = '<div class="' . self::abbr( 'field-description' ) . '">' . $field->description . '</div>';
+		}
+
+		if ( is_a( $container, __CLASS__ ) ){
+			$html[] = $container->build( $content );
+		} else {
+			$html = $content;
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function type_radio( $field, $container = null, $output = 'string', $html = array() ) {
+		$field = self::parse( $field, $container );
+		if ( is_scalar( $field ) ){
+			return false;
+		}
+
+		foreach ( $field->options as $opt ) {
+			$radio = clone $field;
+			if ( isset( $opt['value'] ) ){
+				$radio->_id[] = sanitize_html_class( $opt['value'] );
+				$radio->value = $opt['value'];
+			}
+
+			if ( ! empty( $opt['class'] ) ){
+				$radio->class = array_merge( $radio->class, (array) $opt['class'] );
+			}
+
+			if ( isset( $field->value ) && $field->value === $radio->value ){
+				$radio->checked = true;
+			}
+
+			$content[] = self::type_input( $radio, null, 'string', array() );
+			$content[] = '<label class="' . self::abbr( 'field-label' ) . '" for="' . self::id( $radio->_id ) . '">' . $opt['text'] . '</label><br />';
+		}
+
+		if ( is_a( $container, __CLASS__ ) ){
+			$html[] = $container->build( $content );
+		} else {
+			$html = $content;
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function type_checkbox( $field, $container = null, $output = 'string', $html = array() ) {
+		$field = self::parse( $field, $container );
+		if ( is_scalar( $field ) ){
+			return false;
+		}
+
+		foreach ( $field->options as $opt ) {
+			$checkbox = clone $field;
+			if ( isset( $opt['value'] ) ){
+				$checkbox->_id[] = sanitize_html_class( $opt['value'] );
+				$checkbox->value = $opt['value'];
+			}
+
+			if ( ! empty( $opt['class'] ) ){
+				$checkbox->class = array_merge( $checkbox->class, (array) $opt['class'] );
+			}
+
+			if ( isset( $field->value ) && $field->value === $checkbox->value ){
+				$checkbox->checked = true;
+			}
+
+			$content[] = self::type_input( $checkbox, null, 'string', array() );
+			$content[] = '<label class="' . self::abbr( 'field-label' ) . '" for="' . self::id( $checkbox->_id ) . '">' . $opt['text'] . '</label><br />';
+		}
+
+		if ( is_a( $container, __CLASS__ ) ){
+			$html[] = $container->build( $content );
+		} else {
+			$html = $content;
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function type_dropdown( $field, $container = null, $output = 'string', $html = array() ) {
+		$field = self::parse( $field, $container );
+		if ( is_scalar( $field ) ){
+			return false;
+		}
+
+		if ( isset( $field->multiple ) && $field->multiple ){
+			$content[] = self::type_input( $field, null, 'string', array() );
+		} else {
+			$content[] = '<select' . self::attr( $field ) . '>';
+			$content[] = '<option></option>';
+			foreach ( $field->options as $option ) {
+				$option = (array) $option;
+
+				if ( ! isset( $option['value'] ) && isset( $option['id'] ) ){
+					$option['value'] = $option['id'];
+				} elseif ( ! isset( $option['value'] ) && isset( $option['ID'] ) ){
+					$option['value'] = $option['ID'];
+				} elseif ( ! isset( $option['value'] ) ) {
+					$option['value'] = false;
+				}
+
+				if ( isset( $field->value ) && $field->value === $option['value'] ){
+					$option['selected'] = true;
+				}
+				$content[] = '<option' . self::attr( $option ) . '>' . esc_attr( $option['text'] ) . '</option>';
+			}
+			$content[] = '</select>';
+		}
+
+		if ( is_a( $container, __CLASS__ ) ){
+			$html[] = $container->build( $content );
+		} else {
+			$html = $content;
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function type_range( $field, $container = null, $output = 'string', $html = array() ) {
+		$field = self::parse( $field, $container );
+		if ( is_scalar( $field ) ){
+			return false;
+		}
+
+		$min = clone $field;
+		$min->_id[] = 'min';
+		$min->_name[] = 'min';
+		$min->type = 'number';
+		$min->{'data-type'} = 'min';
+		$min->min = 0;
+		if ( isset( $field->min ) && is_numeric( $field->min ) ){
+			$min->value = $field->min;
+		}
+		$min->class = array();
+		$min->placeholder = esc_attr__( 'e.g.: 3', self::plugin );
+
+		$max = clone $field;
+		$max->_id[] = 'max';
+		$max->_name[] = 'max';
+		$max->{'data-type'} = 'max';
+		$max->type = 'number';
+		$max->min = 0;
+		if ( isset( $field->max ) && is_numeric( $field->max ) ){
+			$max->value = $field->max;
+		} else {
+			$max->disabled = true;
+		}
+		$max->class = array();
+		$max->placeholder = esc_attr__( 'e.g.: 12', self::plugin );
+
+		$content[] = self::type_input( $min, null, 'string', array() );
+		$content[] = '<div class="dashicons dashicons-arrow-right-alt2 dashicon-date" style="display: inline-block;"></div>';
+		$content[] = self::type_input( $max, null, 'string', array() );
+
+		if ( is_a( $container, __CLASS__ ) ){
+			$html[] = $container->build( $content );
+		} else {
+			$html = $content;
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	public static function type_meta( $field, $container = null, $output = 'string', $html = array() ) {
+		$field = self::parse( $field, $container );
+		if ( is_scalar( $field ) ){
+			return false;
+		}
+
+		$index = clone $field;
+		$index->_id[] = 'index';
+		$index->_name[] = 'index';
+		$index->type = 'button';
+		$index->value = '1';
+		$index->disabled = true;
+		$index->class = array( 'action-order' );
+
+		$remove = clone $field;
+		$remove->_id[] = 'remove';
+		$remove->_name[] = 'remove';
+		$remove->type = 'button';
+		$remove->value = '&minus;';
+		$remove->class = array( 'action-remove' );
+
+		$duplicate = clone $field;
+		$duplicate->_id[] = 'duplicate';
+		$duplicate->_name[] = 'duplicate';
+		$duplicate->type = 'button';
+		$duplicate->deactive = true;
+		$duplicate->value = '&plus;';
+		$duplicate->class = array( 'action-duplicate' );
+
+		$table = clone $container;
+		$table->blocks = array( 'heading', 'table' );
+		$table->heads = array(
+			array(
+				'class' => 'order-table',
+				'html' => self::type_button( $index, null, 'string' ),
+			),
+			array(
+				'class' => 'label-table',
+				'html' => '',
+			),
+			array(
+				'class' => 'fields-table',
+				'html' => '',
+			),
+			array(
+				'html' => self::type_button( $remove, null, 'string' ) . self::type_button( $duplicate, null, 'string' ),
+				'class' => 'actions-table',
+			),
+		);
+		$blocks = array(
+			array(
+				'html' => '',
+				'class' => 'order-table',
+			),
+			'label', 'fields',
+			array(
+				'html' => '',
+				'class' => 'actions-table',
+			),
 		);
 
-		$field = $this->start();
-		$field .= $this->label();
-		$field .= $this->wrap_start();
-		$field .= '<input' . $this->attributes( wp_parse_args( $attributes, $defaults ) ) . '/>';
-		$field .= $this->screenreader();
-		$field .= $this->wrap_end();
-		$field .= $this->end();
+		$meta_type = clone $container;
+		$meta_type->id[] = 'type';
+		$meta_type->type .= '_type';
+		$meta_type->label = __( 'Type', self::plugin );
+		$meta_type->description = __( 'Select a type of the Meta Field', self::plugin );
+		$meta_type->class = array( 'meta_type-container' );
+		$meta_type->blocks = $blocks;
 
-		return $field;
+		$meta_name = clone $container;
+		$meta_name->id[] = 'name';
+		$meta_name->type .= '_name';
+		$meta_name->label = __( 'Name', self::plugin );
+		$meta_name->description = __( 'Select the name for Meta Field', self::plugin );
+		$meta_name->class = array( 'meta_name-container' );
+		$meta_name->blocks = $blocks;
+
+		$meta_conf = clone $container;
+		$meta_conf->id[] = 'conf';
+		$meta_name->type .= '_conf';
+		$meta_conf->label = __( 'Configuration', self::plugin );
+		$meta_conf->description = __( '', self::plugin );
+		$meta_conf->class = array( 'meta_conf-container' );
+		$meta_conf->blocks = $blocks;
+
+		$type = clone $field;
+		$type->_id[] = 'type';
+		$type->_name[] = 'type';
+		$type->type = 'dropdown';
+		$type->options = self::get_meta_types();
+		$type->class = array( 'meta_type' );
+		$type->placeholder = esc_attr__( 'Select a Field type', self::plugin );
+
+		$name = clone $field;
+		$name->_id[] = 'name';
+		$name->_name[] = 'name';
+		$name->type = 'text';
+		$name->class = array( 'meta_name' );
+		$name->placeholder = esc_attr__( 'Newborn Meta needs a Name, E.g.: _new_image', self::plugin );
+
+		$content[] = $meta_type->build( self::type_dropdown( $type, null, 'string' ) );
+		$content[] = $meta_name->build( self::type_text( $name, null, 'string' ) );
+		$content[] = $meta_conf->build( '' );
+
+		$content = $table->build( $content );
+
+		if ( is_a( $container, __CLASS__ ) ){
+			$html[] = $container->build( $content );
+		} else {
+			$html = $content;
+		}
+
+		foreach ( $type->options as $key => $ftype ) {
+			$is_callable = ( isset( $ftype->template ) && is_callable( $ftype->template ) );
+			$html[] = '<script type="text/html" data-rel="' . self::id( $container->id, true ) . '" class="' . self::abbr( 'template-' . $ftype->value ) . '"' . ( $is_callable ? ' data-callable' : '' ) . '>';
+			if ( $is_callable ){
+				$html[] = call_user_func_array( $ftype->template, array( $field, $ftype ) );
+			}
+			$html[] = '</script>';
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
 	}
 
+	public static function get_meta_types(){
+		$types = (object) array();
 
-	/**
-	 * generate a simple text field
-	 *
-	 * @return string the field
-	 */
-	public function range( $name, $value = null, $attributes ) {
-		$min_attr = array(
-			'name' => $this->name( array( 'qty', 'min' ) ),
-			'type' => 'number',
-			'max' => 25,
-			'min' => 1,
-			'style' => 'width: 90px;',
-			'class' => array( 'qty-range-min' ),
-			'placeholder' => esc_attr__( 'e.g.: 3', 'fakerpress' ),
+		$default = (object) array(
+			'separator' => array(
+				'_id' => array( 'meta', 'separator' ),
+				'_name' => array( 'meta', 'separator' ),
+				'type' => 'text',
+				'size' => 'tiny',
+				'class' => array(),
+				'value' => ',',
+				'placeholder' => __( 'E.g.: , ', self::plugin ),
+				'label' => __( 'Separator', self::plugin ),
+			),
+			'weight' => array(
+				'_id' => array( 'meta', 'weight' ),
+				'_name' => array( 'meta', 'weight' ),
+				'type' => 'number',
+				'class' => array(),
+				'value' => 90,
+				'min' => 0,
+				'max' => 100,
+				'placeholder' => __( 'E.g.: 55', self::plugin ),
+				'label' => __( 'Weight', self::plugin ),
+			),
+			'qty' => array(
+				'_id' => array( 'meta', 'qty' ),
+				'_name' => array( 'meta', 'qty' ),
+				'type' => 'range',
+				'class' => array(),
+				'label' => __( 'Quantity', self::plugin ),
+			),
+		);
+		foreach ( $default as $key => $field ) {
+			$default->{$key} = (object) $field;
+		}
+
+		$types->numbers = array(
+			'value' => 'numbers',
+			'text' => __( 'Number', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$range = clone $field;
+				$range->_id = array( 'meta', 'number' );
+				$range->_name = array( 'meta', 'number' );
+				$range->type = 'range';
+				$range->class = array();
+				$range->label = __( 'Range of possible numbers', self::plugin );
+				$range->_min = 0;
+				$range->_max = 9;
+
+				$html[] = self::wrapper( self::type_range( $range, null, 'string' ), $range );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
 		);
 
-		$max_attr = array(
-			'name' => $this->name( array( 'qty', 'max' ) ),
-			'type' => 'number',
-			'max' => 25,
-			'min' => 1,
-			'style' => 'width: 90px;',
-			'disabled' => false,
-			'class' => array( 'qty-range-max' ),
-			'placeholder' => esc_attr__( 'e.g.: 10', 'fakerpress' ),
+		$types->wp_query = array(
+			'value' => 'wp_query',
+			'text' => __( 'WP_Query', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$query = clone $field;
+				$query->_id = array( 'meta', 'query' );
+				$query->_name = array( 'meta', 'query' );
+				$query->type = 'text';
+				$query->class = array();
+				$query->size = 'large';
+				$query->placeholder = __( 'category=2&posts_per_page=10', self::plugin );
+				$query->label = __( 'Uses <a href="http://codex.wordpress.org/Class_Reference/WP_Query" target="_blank">WP_Query</a>', self::plugin );
+
+				$html[] = self::wrapper( self::type_text( $query, null, 'string' ), $query );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
 		);
 
-		$field = $this->start();
-		$field .= $this->label();
-		$field .= $this->wrap_start();
-		$field .= '<input' . $this->attributes( $min_attr ) . '/>';
-		$field .= '<div class="dashicons dashicons-arrow-right-alt2 dashicon-date" style="display: inline-block;"></div>';
-		$field .= '<input' . $this->attributes( $max_attr ) . '/>';
-		$field .= $this->screenreader();
-		$field .= $this->wrap_end();
-		$field .= $this->end();
+		$types->elements = array(
+			'value' => 'elements',
+			'text' => __( 'Elements', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$tags = clone $field;
+				$tags->_id = array( 'meta', 'elements' );
+				$tags->_name = array( 'meta', 'elements' );
+				$tags->type = 'dropdown';
+				$tags->multiple = true;
+				$tags->{'data-options'} = array();
+				$tags->{'data-tags'} = true;
+				$tags->class = array();
+				$tags->placeholder = __( 'Type all possible elements (Tab or Return)', self::plugin );
+				$tags->label = __( '', self::plugin );
 
-		return $field;
+				$html[] = self::wrapper( self::type_dropdown( $tags, null, 'string' ), $tags );
+				$html[] = self::wrapper( self::type_range( $default->qty, null, 'string' ), $default->qty );
+				$html[] = self::wrapper( self::type_text( $default->separator, null, 'string' ), $default->separator );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->letter = array(
+			'value' => 'letter',
+			'text' => __( 'Letter', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->words = array(
+			'value' => 'words',
+			'text' => __( 'Words', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+
+				$html[] = self::wrapper( self::type_range( $default->qty, null, 'string' ), $default->qty );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->text = array(
+			'value' => 'text',
+			'text' => __( 'Text', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$text = clone $field;
+				$text->_id = array( 'meta', 'text_type' );
+				$text->_name = array( 'meta', 'text_type' );
+				$text->type = 'dropdown';
+				$text->options = array(
+					array(
+						'text' => __( 'Sentences', self::plugin ),
+						'value' => 'sentences',
+					),
+					array(
+						'text' => __( 'Paragraphs', self::plugin ),
+						'value' => 'paragraphs',
+					),
+				);
+				$text->value = 'paragraphs';
+				$text->class = array();
+
+				$separator = clone $default->separator;
+				$separator->value = '\n';
+				$separator->label = __( 'Separator <b space>&mdash;</b> New Line: "\n"', self::plugin );
+
+				$html[] = self::wrapper( self::type_dropdown( $text, null, 'string' ), $text );
+				$html[] = self::wrapper( self::type_range( $default->qty, null, 'string' ), $default->qty );
+				$html[] = self::wrapper( self::type_text( $separator, null, 'string' ), $separator );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->html = array(
+			'value' => 'html',
+			'text' => __( 'HTML', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$elements = clone $field;
+				$elements->_id = array( 'meta', 'elements' );
+				$elements->_name = array( 'meta', 'elements' );
+				$elements->type = 'dropdown';
+				$elements->multiple = true;
+				$elements->{'data-tags'} = true;
+				$elements->{'data-options'} = array_merge( \Faker\Provider\HTML::$sets['header'], \Faker\Provider\HTML::$sets['list'], \Faker\Provider\HTML::$sets['block'], \Faker\Provider\HTML::$sets['self_close'] );
+				$elements->value = implode( ',', $elements->{'data-options'} );
+				$elements->class = array();
+				$elements->label = __( 'HTML Tags, without &lt; or &gt;', self::plugin );
+
+				$html[] = self::wrapper( self::type_dropdown( $elements, null, 'string' ), $elements );
+				$html[] = self::wrapper( self::type_range( $default->qty, null, 'string' ), $default->qty );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->lexify = array(
+			'value' => 'lexify',
+			'text' => __( 'Lexify', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$template = clone $field;
+				$template->_id = array( 'meta', 'template' );
+				$template->_name = array( 'meta', 'template' );
+				$template->type = 'text';
+				$template->class = array();
+				$template->placeholder = __( 'E.g.: John ##??', self::plugin );
+				$template->label = __( 'John ##?? <b spacer>&raquo;</b> John 29ze', self::plugin );
+
+				$html[] = self::wrapper( self::type_text( $template, null, 'string' ), $template );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->asciify = array(
+			'value' => 'asciify',
+			'text' => __( 'Asciify', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$template = clone $field;
+				$template->_id = array( 'meta', 'template' );
+				$template->_name = array( 'meta', 'template' );
+				$template->type = 'text';
+				$template->class = array();
+				$template->placeholder = __( 'E.g.: John ****', self::plugin );
+				$template->label = __( 'John **** <b spacer>&raquo;</b> John r9"+', self::plugin );
+
+				$html[] = self::wrapper( self::type_text( $template, null, 'string' ), $template );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->regexify = array(
+			'value' => 'regexify',
+			'text' => __( 'Regexify', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$template = clone $field;
+				$template->_id = array( 'meta', 'template' );
+				$template->_name = array( 'meta', 'template' );
+				$template->type = 'text';
+				$template->class = array();
+				$template->placeholder = __( 'E.g.: [A-Z0-9._%+-]+@[A-Z0-9.-]', self::plugin );
+				$template->label = __( '[A-Z0-9._%+-]+@[A-Z0-9.-] <b spacer>&raquo;</b> sm0@y8k96a', self::plugin );
+
+				$html[] = self::wrapper( self::type_text( $template, null, 'string' ), $template );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->person = array(
+			'value' => 'person',
+			'text' => __( 'Person', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$template = clone $field;
+				$template->_id = array( 'meta', 'template' );
+				$template->_name = array( 'meta', 'template' );
+				$template->type = 'dropdown';
+				$template->multiple = true;
+				$template->{'data-tags'} = true;
+				$template->{'data-options'} = array(
+					array(
+						'text' => __( 'Title', self::plugin ),
+						'value' => '{% title %}',
+					),
+					array(
+						'text' => __( 'First Name', self::plugin ),
+						'value' => '{% first_name %}',
+					),
+					array(
+						'text' => __( 'Last Name', self::plugin ),
+						'value' => '{% last_name %}',
+					),
+					array(
+						'text' => __( 'Suffix', self::plugin ),
+						'value' => '{% suffix %}',
+					),
+				);
+				$template->value = 'title,first_name,last_name,suffix';
+				$template->value = '{% title %}|{% first_name %}|{% last_name %}|{% suffix %}';
+				$template->{'data-separator'} = '|';
+				$template->class = array();
+				$template->label = __( 'Name Template', self::plugin );
+
+				$gender = clone $field;
+				$gender->_id = array( 'meta', 'gender' );
+				$gender->_name = array( 'meta', 'gender' );
+				$gender->type = 'radio';
+				$gender->options = array(
+					array(
+						'text' => __( 'Male', self::plugin ),
+						'value' => 'male',
+					),
+					array(
+						'text' => __( 'Female', self::plugin ),
+						'value' => 'female',
+					),
+				);
+				$gender->value = 'female';
+				$gender->class = array();
+
+				$html[] = self::wrapper( self::type_dropdown( $template, null, 'string' ), $template );
+				$html[] = self::wrapper( self::type_radio( $gender, null, 'string' ), $gender );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->geo = array(
+			'value' => 'geo',
+			'text' => __( 'Geo Information', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$template = clone $field;
+				$template->_id = array( 'meta', 'template' );
+				$template->_name = array( 'meta', 'template' );
+				$template->type = 'dropdown';
+				$template->multiple = true;
+				$template->{'data-tags'} = true;
+				$template->{'data-options'} = array(
+					array(
+						'text' => __( 'Country', self::plugin ),
+						'value' => '{% country %}',
+					),
+					array(
+						'text' => __( 'City Prefix', self::plugin ),
+						'value' => '{% city_prefix %}',
+					),
+					array(
+						'text' => __( 'City Suffix', self::plugin ),
+						'value' => '{% city_suffix %}',
+					),
+					array(
+						'text' => __( 'City', self::plugin ),
+						'value' => '{% city %}',
+					),
+					array(
+						'text' => __( 'State', self::plugin ),
+						'value' => '{% state %}',
+					),
+					array(
+						'text' => __( 'State Abbr', self::plugin ),
+						'value' => '{% state_abbr %}',
+					),
+					array(
+						'text' => __( 'Address', self::plugin ),
+						'value' => '{% address %}',
+					),
+					array(
+						'text' => __( 'Secondary Address', self::plugin ),
+						'value' => '{% secondary_address %}',
+					),
+					array(
+						'text' => __( 'Building Number', self::plugin ),
+						'value' => '{% building_number %}',
+					),
+					array(
+						'text' => __( 'Street Name', self::plugin ),
+						'value' => '{% street_name %}',
+					),
+					array(
+						'text' => __( 'Street Address', self::plugin ),
+						'value' => '{% street_address %}',
+					),
+					array(
+						'text' => __( 'Postal Code', self::plugin ),
+						'value' => '{% postalcode %}',
+					),
+					array(
+						'text' => __( 'Latitude', self::plugin ),
+						'value' => '{% latitude %}',
+					),
+					array(
+						'text' => __( 'Longitude', self::plugin ),
+						'value' => '{% longitude %}',
+					),
+				);
+				$template->value = '{% latitude %}|,|{% longitude %}';
+				$template->{'data-separator'} = '|';
+				$template->class = array();
+				$template->label = __( 'Address Format', self::plugin );
+
+				$html[] = self::wrapper( self::type_dropdown( $template, null, 'string' ), $template );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->phone = array(
+			'value' => 'company',
+			'text' => __( 'Company', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$template = clone $field;
+				$template->_id = array( 'meta', 'template' );
+				$template->_name = array( 'meta', 'template' );
+				$template->type = 'dropdown';
+				$template->multiple = true;
+				$template->{'data-tags'} = true;
+				$template->{'data-options'} = array(
+					array(
+						'text' => __( 'Catch Phrase', self::plugin ),
+						'value' => '{% catch_phrase %}',
+					),
+					array(
+						'text' => __( 'BS', self::plugin ),
+						'value' => '{% bs %}',
+					),
+					array(
+						'text' => __( 'Company', self::plugin ),
+						'value' => '{% company %}',
+					),
+					array(
+						'text' => __( 'Suffix', self::plugin ),
+						'value' => '{% suffix %}',
+					),
+				);
+				$template->value = '{% company %}|&nbsp;|{% suffix %}';
+				$template->{'data-separator'} = '|';
+				$template->class = array();
+				$template->label = __( 'Company Format', self::plugin );
+
+				$html[] = self::wrapper( self::type_dropdown( $template, null, 'string' ), $template );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->date = array(
+			'value' => 'date',
+			'text' => __( 'Date', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$template = clone $field;
+				$template->_id = array( 'meta', 'interval' );
+				$template->_name = array( 'meta', 'interval' );
+				$template->type = 'interval';
+				$template->class = array();
+
+				$format = clone $field;
+				$format->_id = array( 'meta', 'format' );
+				$format->_name = array( 'meta', 'format' );
+				$format->type = 'text';
+				$format->class = array();
+				$format->value = 'Y-m-d H:i:s';
+				$format->label = __( 'Date Format <b space>&mdash;</b> See <a href="http://php.net/manual/function.date.php" target="_blank">PHP Date</a>', self::plugin );
+
+				$html[] = self::wrapper( self::type_interval( $template, null, 'string' ), $template );
+				$html[] = self::wrapper( self::type_text( $format, null, 'string' ), $format );
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->timezone = array(
+			'value' => 'timezone',
+			'text' => __( 'TimeZone', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->email = array(
+			'value' => 'email',
+			'text' => __( 'Email', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->domain = array(
+			'value' => 'domain',
+			'text' => __( 'Domain', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->ip = array(
+			'value' => 'ip',
+			'text' => __( 'IP', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+
+		$types->user_agent = array(
+			'value' => 'user_agent',
+			'text' => __( 'Browser User Agent', self::plugin ),
+			'template' => function( $field, $type ) use ( $default ){
+				$html[] = self::wrapper( self::type_number( $default->weight, null, 'string' ), $default->weight );
+
+				return implode( "\r\n", $html );
+			},
+		);
+		foreach ( $types as $key => $type ) {
+			$types->{$key} = (object) $type;
+		}
+
+		return apply_filters( self::plugin . '/fields/meta_types', $types );
 	}
 
-	/**
-	 * generate a textarea field
-	 *
-	 * @return string the field
-	 */
-	public function textarea( $name, $value = null, $attributes ) {
-		$field = $this->start();
-		$field .= $this->label();
-		$field .= $this->wrap_start();
-		$field .= '<textarea' . $this->attributes() . '>';
-		$field .= esc_html( stripslashes( $this->value ) );
-		$field .= '</textarea>';
-		$field .= $this->screenreader();
-		$field .= $this->wrap_end();
-		$field .= $this->end();
+	public static function type_interval( $field, $container = null, $output = 'string', $html = array() ) {
+		$field = self::parse( $field, $container );
+		if ( is_scalar( $field ) ){
+			return false;
+		}
 
-		return $field;
+		$min = clone $field;
+		$min->_id[] = 'min';
+		$min->_name[] = 'min';
+		$min->type = 'date';
+		$min->{'data-type'} = 'min';
+		$min->value = '';
+		$min->class = array();
+		$min->placeholder = esc_attr__( 'yyyy-mm-dd', self::plugin );
+
+		$max = clone $field;
+		$max->_id[] = 'max';
+		$max->_name[] = 'max';
+		$max->type = 'date';
+		$max->{'data-type'} = 'max';
+		$max->class = array();
+		$max->value = '';
+		$max->placeholder = esc_attr__( 'yyyy-mm-dd', self::plugin );
+
+		$interval = clone $field;
+		$interval->_id[] = 'name';
+		$interval->_name[] = 'name';
+		$interval->type = 'dropdown';
+		$interval->class = array();
+		$interval->{'data-placeholder'} = esc_attr__( 'Select an Interval', self::plugin );
+		$interval->options = Dates::get_intervals();
+
+		$content[] = self::type_dropdown( $interval, null, 'string' );
+		$content[] = self::type_date( $min, null, 'string' );
+		$content[] = '<div class="dashicons dashicons-arrow-right-alt2 dashicon-date" style="display: inline-block;"></div>';
+		$content[] = self::type_date( $max, null, 'string' );
+
+		if ( is_a( $container, __CLASS__ ) ){
+			$html[] = $container->build( $content );
+		} else {
+			$html = $content;
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
 	}
 
-	/**
-	 * generate a wp_editor field
-	 *
-	 * @return string the field
-	 */
-	public function wysiwyg( $name, $value = null, $attributes ) {
+	public static function type_raw( $field, $container = null, $output = 'string', $html = array() ) {
+		$field = self::parse( $field, $container );
+		if ( is_scalar( $field ) ){
+			return false;
+		}
+
+		if ( ! empty( $field->html ) ){
+			$content[] = $field->html;
+		} else {
+			$content = '';
+		}
+
+		if ( is_a( $container, __CLASS__ ) ){
+			$html[] = $container->build( $content );
+		} else {
+			$html = $content;
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $html );
+		} else {
+			return $html;
+		}
+	}
+
+	/*
+
+	public static function type_textarea( $field, $container = null, $output = 'string' ) {
+		if ( is_array( $container ) ){
+			$field[] = $this->start_container();
+			$field[] = $this->label();
+			$field[] = $this->start_wrap();
+		}
+
+		$field[] = '<textarea' . $this->attr() . '>' . esc_html( stripslashes( $this->value ) ) . '</textarea>';
+
+		if ( is_array( $container ) ){
+			$field[] = $this->end_wrap();
+			$field[] = $this->end_container();
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $field );
+		} else {
+			return $field;
+		}
+	}
+
+	public static function type_wysiwyg( $field, $container = null, $output = 'string' ) {
 		$settings = array(
 			'teeny'   => true,
 			'wpautop' => true,
@@ -474,179 +1548,27 @@ class Field {
 		ob_start();
 		wp_editor( html_entity_decode( ( $this->value ) ), $this->name, $settings );
 		$editor = ob_get_clean();
-		$field  = $this->start();
-		$field .= $this->label();
-		$field .= $this->wrap_start();
-		$field .= $editor;
-		$field .= $this->screenreader();
-		$field .= $this->wrap_end();
-		$field .= $this->end();
 
-		return $field;
-	}
+		if ( is_array( $container ) ){
+			$field[] = $this->start_container();
+			$field[] = $this->label();
+			$field[] = $this->start_wrap();
+		}
 
-	/**
-	 * generate a radio button field
-	 *
-	 * @return string the field
-	 */
-	public function radio( $name, $value = null, $attributes ) {
-		$field = $this->start();
-		$field .= $this->label();
-		$field .= $this->wrap_start();
-		if ( is_array( $this->options ) ) {
-			foreach ( $this->options as $option_id => $title ) {
-				$field .= '<label title="' . esc_attr( $title ) . '">';
-				$field .= '<input type="radio"';
-				$field .= $this->get_name();
-				$field .= ' value="' . esc_attr( $option_id ) . '" ' . checked( $this->value, $option_id, false ) . '/>';
-				$field .= $title;
-				$field .= '</label>';
-			}
+		$field[] = $editor;
+
+		if ( is_array( $container ) ){
+			$field[] = $this->end_wrap();
+			$field[] = $this->end_container();
+		}
+
+		if ( 'string' === $output ){
+			return implode( "\r\n", $field );
 		} else {
-			$field .= '<span class="tribe-error">' . __( 'No radio options specified', 'tribe-events-calendar' ) . '</span>';
+			return $field;
 		}
-		$field .= $this->wrap_end();
-		$field .= $this->end();
-
-		return $field;
 	}
 
-	/**
-	 * generate a checkbox_list field
-	 *
-	 * @return string the field
 	 */
-	public function checkbox( $name, $value = null, $attributes ) {
-		$field = $this->start();
-		$field .= $this->label();
-		$field .= $this->wrap_start();
-		if ( ! is_array( $this->value ) ) {
-			if ( ! empty( $this->value ) ) {
-				$this->value = array( $this->value );
-			} else {
-				$this->value = array();
-			}
-		}
-
-		if ( is_array( $this->options ) ) {
-			foreach ( $this->options as $option_id => $title ) {
-				$field .= '<label title="' . esc_attr( $title ) . '">';
-				$field .= '<input type="checkbox"';
-				$field .= $this->get_name( true );
-				$field .= ' value="' . esc_attr( $option_id ) . '" ' . checked( in_array( $option_id, $this->value ), true, false ) . '/>';
-				$field .= $title;
-				$field .= '</label>';
-			}
-		} else {
-			$field .= '<span class="tribe-error">' . __( 'No checkbox options specified', 'tribe-events-calendar' ) . '</span>';
-		}
-		$field .= $this->wrap_end();
-		$field .= $this->end();
-
-		return $field;
-	}
-
-	/**
-	 * generate a boolean checkbox field
-	 *
-	 * @return string the field
-	 */
-	public function boolean( $name, $value = null, $attributes ) {
-		$args = array(
-			'type' => 'checkbox',
-			'value' => 1,
-		);
-
-		if ( $value ){
-			$args['checked'] = false;
-		}
-
-		$field = $this->start();
-		$field .= $this->label();
-		$field .= $this->wrap_start();
-		$field .= '<input ' . $this->attributes( $args ) . '/>';
-		if ( ! empty( $this->args->info ) ){
-			$field .= '<label class="fp-field-label" for="' . $this->id() . '">' . $this->args->info . '</label>';
-		}
-		$field .= $this->screenreader();
-		$field .= $this->wrap_end();
-		$field .= $this->end();
-
-		return $field;
-	}
-
-	/**
-	 * generate a dropdown field
-	 *
-	 * @return string the field
-	 */
-	public function dropdown( $name, $value = null, $attributes ) {
-		$field = $this->start();
-		$field .= $this->label();
-		$field .= $this->wrap_start();
-
-		if ( $this->is_multiple() ){
-			$defaults = array(
-				'type' => 'hidden',
-				'class' => 'fp-field-select2-mutiple',
-				'value' => $value,
-			);
-			$field .= '<input ' . $this->attributes( wp_parse_args( $attributes, $defaults ) ) . ' />';
-		} else {
-
-		}
-
-		$field .= $this->wrap_end();
-		$field .= $this->end();
-
-		return $field;
-	}
-
-	public function interval( $name, $value = null, $attributes ) {
-		$min_attr = array(
-			'id' => $this->id() . '-min',
-			'name' => $this->name( array( 'date', 'min' ) ),
-			'type' => 'text',
-			'style' => 'width: 150px;',
-			'class' => array( 'fp-field-datepicker' ),
-			'data-type' => 'min',
-			'placeholder' => esc_attr__( 'mm/dd/yyyy', 'fakerpress' ),
-		);
-
-		$max_attr = array(
-			'id' => $this->id() . '-max',
-			'name' => $this->name( array( 'date', 'max' ) ),
-			'type' => 'text',
-			'style' => 'width: 150px;',
-			'class' => array( 'fp-field-datepicker' ),
-			'data-type' => 'max',
-			'placeholder' => esc_attr__( 'mm/dd/yyyy', 'fakerpress' ),
-		);
-
-		$field = $this->start();
-		$field .= $this->label();
-		$field .= $this->wrap_start();
-
-		$field .= '<select id="fakerpress_interval_date" class="fp-field-interval fp-field-select2" data-placeholder="' . esc_attr__( 'Select an Interval', 'fakerpress' ) . '" style="margin-right: 5px; margin-top: -4px;">';
-		$field .= '<option></option>';
-
-		$_json_date_selection_output = Dates::get_intervals();
-		foreach ( $_json_date_selection_output as $option ) {
-			$field .= '<option data-min="' . esc_attr( date( 'm/d/Y', strtotime( $option['min'] ) ) ) . '" data-max="' . esc_attr( date( 'm/d/Y', strtotime( $option['max'] ) ) ) . '" value="' . esc_attr( $option['text'] ) . '">' . esc_attr( $option['text'] ) . '</option>';
-		}
-		$field .= '</select>';
-
-		$field .= '<input' . $this->attributes( $min_attr ) . '/>';
-		$field .= '<div class="dashicons dashicons-arrow-right-alt2 dashicon-date" style="display: inline-block;"></div>';
-		$field .= '<input' . $this->attributes( $max_attr ) . '/>';
-
-		$field .= $this->screenreader();
-		$field .= $this->wrap_end();
-		$field .= $this->end();
-
-		return $field;
-	}
 
 } // end class
-

@@ -31,11 +31,16 @@ require_once Plugin::path( 'inc/class-fp-field.php' );
 
 // Inluding needed providers
 require_once Plugin::path( 'providers/html.php' );
-require_once Plugin::path( 'providers/vendor/placeholdit.php' );
-require_once Plugin::path( 'providers/vendor/500px.php' );
+require_once Plugin::path( 'providers/image/placeholdit.php' );
+require_once Plugin::path( 'providers/image/500px.php' );
+require_once Plugin::path( 'providers/text/base.php' );
 
 // Require the Base module
 require_once Plugin::path( 'modules/base.php' );
+
+// Require the Meta module
+require_once Plugin::path( 'providers/wp-meta.php' );
+require_once Plugin::path( 'modules/meta.php' );
 
 // Require the Post module
 require_once Plugin::path( 'providers/wp-post.php' );
@@ -56,6 +61,7 @@ require_once Plugin::path( 'modules/term.php' );
 // Require the Comment module
 require_once Plugin::path( 'providers/wp-comment.php' );
 require_once Plugin::path( 'modules/comment.php' );
+
 
 // Require our Administration Class
 Plugin::$admin = require_once Plugin::path( 'inc/class-fp-admin.php' );

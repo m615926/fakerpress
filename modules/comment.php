@@ -50,6 +50,7 @@ class Comment extends Base {
 			return false;
 		}
 		// After this point we are safe to say that we have a good POST request
+		$meta_module = Meta::instance();
 
 		$qty_min = absint( Filter::super( INPUT_POST, array( 'fakerpress', 'qty', 'min' ), FILTER_SANITIZE_NUMBER_INT ) );
 		$qty_max = absint( Filter::super( INPUT_POST, array( 'fakerpress', 'qty', 'max' ), FILTER_SANITIZE_NUMBER_INT ) );
@@ -57,8 +58,9 @@ class Comment extends Base {
 		$comment_content_use_html = Filter::super( INPUT_POST, array( 'fakerpress', 'use_html' ), FILTER_SANITIZE_STRING, 'off' ) === 'on';
 		$comment_content_html_tags = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'html_tags' ), FILTER_SANITIZE_STRING ) ) );
 
-		$min_date = Filter::super( INPUT_POST, array( 'fakerpress', 'date', 'min' ) );
-		$max_date = Filter::super( INPUT_POST, array( 'fakerpress', 'date', 'max' ) );
+		$min_date = Filter::super( INPUT_POST, array( 'fakerpress', 'interval_date', 'min' ) );
+		$max_date = Filter::super( INPUT_POST, array( 'fakerpress', 'interval_date', 'max' ) );
+		$metas = Filter::super( INPUT_POST, array( 'fakerpress', 'meta' ), FILTER_UNSAFE_RAW );
 
 		if ( 0 === $qty_min ){
 			return Admin::add_message( sprintf( __( 'Zero is not a good number of %s to fake...', 'fakerpress' ), 'posts' ), 'error' );
@@ -81,7 +83,14 @@ class Comment extends Base {
 
 			$this->generate();
 
-			$results->all[] = $this->save();
+			$comment_id = $this->save();
+
+			if ( $comment_id && is_numeric( $comment_id ) ){
+				foreach ( $metas as $meta_index => $meta ) {
+					$meta_module->object( $comment_id, 'comment' )->build( $meta['type'], $meta['name'], $meta )->save();
+				}
+			}
+			$results->all[] = $comment_id;
 		}
 		$results->success = array_filter( $results->all, 'absint' );
 
