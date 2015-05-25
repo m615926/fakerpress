@@ -1,13 +1,13 @@
 === FakerPress ===
-Contributors:      bordoni, luancuba
-Tags:              generator, dummy content, lorem ipsun, admin, exemples, testing, images, attachments, featured image, taxonomies, users, post type, faker, fake data, random, developer, dev, development, test, tests
+Contributors:      bordoni
+Tags:              generator, dummy content, dummy data, lorem ipsun, admin, exemples, testing, images, attachments, featured image, taxonomies, users, post type, faker, fake data, random, developer, dev, development, test, tests
 Requires at least: 3.7
 Tested up to:      4.2
 Stable tag:        trunk
 License:           GPLv2 or later
 License URI:       http://www.gnu.org/licenses/gpl-2.0.html
 
-FakerPress is a clean way to generate fake data to your WordPress, great for developers who need testing
+FakerPress is a clean way to generate fake and dummy content to your WordPress, great for developers who need testing
 
 == Description ==
 
@@ -16,6 +16,8 @@ Whenever you create a new Theme or Plugin you will always need to create custom 
 Our goal with this plugin is to fill this gap where you have problem with a good solution both for Developers and for Users of WordPress.
 
 > **Note: This plugin requires PHP 5.3 or higher to be activated.**
+
+[**Checkout our GitHub Repository**](http://fakerpress/r/github)
 
 ---
 
@@ -81,8 +83,10 @@ If you fill up your WordPress with any data for the user profiles you might not 
 = Languages =
 
 * English
-* Portuguese (Brazil)
-* Portuguese (Portugal)
+* Portuguese (pt_BR) &mdash; [Luan Cuba](https://profiles.wordpress.org/luancuba/)
+* Chinese (zh_CH) &mdash; [xnces](https://www.transifex.com/accounts/profile/xnces/)
+
+> Can you help us translate FakerPress? Get on board on our [Transifex project page](https://www.transifex.com/projects/p/fakerpress/)
 
 = See room for improvement? =
 
@@ -95,6 +99,13 @@ Great! There are several ways you can get involved to help make FakerPress bette
 Thank you for wanting to make FakerPress better for everyone! [We salute you](https://www.youtube.com/watch?v=8fPf6L0XNvM).
 
 == Changelog ==
+
+= 0.3.2 &mdash; 25 of May, 2015 =
+* New: Including LoremPixel as a Image Provider &mdash; Thanks [examinedliving](https://github.com/examinedliving)
+* Fix: A few JavaScript/jQuery tweeks for better Select2 Handling on Dates
+* Fix: Intervals now have a better Handling for non-timed Strings &mdash; Thanks [alfiemx_](https://profiles.wordpress.org/alfiemx_)
+* Fix: Better verification of Carbon inclusion &mdash; Thanks [Frankie Jarrett](https://profiles.wordpress.org/fjarrett/)
+* Fix: Closures now using self variables better, prevents Fatal Error &mdash; Thanks [fccoelho7](https://profiles.wordpress.org/fccoelho7/)
 
 = 0.3.1 &mdash; 2 of May, 2015 =
 * Fix: Date Meta Field is now working as expected

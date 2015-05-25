@@ -259,6 +259,10 @@ Class Admin {
 	 */
 	public function _action_admin_menu() {
 		foreach ( self::$menus as &$menu ) {
+			if ( ! current_user_can( $menu->capability ) ){
+				continue;
+			}
+
 			if ( 0 === $menu->priority ) {
 				$menu->hook = add_menu_page( $menu->title, $menu->label, $menu->capability, Plugin::$slug, array( &$this, '_include_settings_page' ), 'none' );
 			} else {
@@ -267,7 +271,9 @@ Class Admin {
 		}
 
 		// Change the Default Submenu for FakerPress menus
-		$GLOBALS['submenu'][ Plugin::$slug ][0][0] = esc_attr__( 'Settings', 'FakerPress' );
+		if ( ! empty( $GLOBALS['submenu'][ Plugin::$slug ] ) ){
+			$GLOBALS['submenu'][ Plugin::$slug ][0][0] = esc_attr__( 'Settings', 'FakerPress' );
+		}
 	}
 
 	/**
@@ -347,8 +353,8 @@ Class Admin {
 		wp_register_script( 'fakerpress.select2', Plugin::url( 'ui/vendor/select2/select2.min.js' ), array( 'jquery' ), '3.5.0', true );
 
 		// Register DatePicker Skins
-		wp_register_style( 'jquery-ui', '//ajax.googleapis.com/ajax/libs/jqueryui/1.10.1/themes/base/jquery-ui.css', array(), '1.10.1', 'screen' );
-		wp_register_style( 'fakerpress.datepicker', Plugin::url( 'ui/css/datepicker.css' ), array( 'jquery-ui' ), Plugin::version, 'screen' );
+		wp_register_style( 'fakerpress.jquery-ui', Plugin::url( 'ui/css/jquery-ui.css' ), array(), '1.10.1', 'screen' );
+		wp_register_style( 'fakerpress.datepicker', Plugin::url( 'ui/css/datepicker.css' ), array( 'fakerpress.jquery-ui' ), Plugin::version, 'screen' );
 
 		// Enqueue DatePicker Skins
 		wp_enqueue_style( 'fakerpress.datepicker' );
@@ -512,7 +518,10 @@ Class Admin {
 			return $text;
 		}
 
-		return esc_attr__( 'Version' ) . ': ' . '<a title="' . __( 'View what changed in this version', 'fakerpress' ) . '" href="' . esc_url( Plugin::admin_url( 'view=changelog&version=' . esc_attr( Plugin::version ) ) ) . '">' . esc_attr( Plugin::version ) . '</a>';
+		$translate = sprintf( '<a class="fp-translations-link" href="%s" title="%s"><span class="dashicons dashicons-translation"></span></a>', Plugin::ext_site_url( '/r/translate' ), esc_attr__( 'Help us with Translations for the FakerPress project', 'fakerpress' ) );
+		$version = esc_attr__( 'Version' ) . ': ' . '<a title="' . __( 'View what changed in this version', 'fakerpress' ) . '" href="' . esc_url( Plugin::admin_url( 'view=changelog&version=' . esc_attr( Plugin::version ) ) ) . '">' . esc_attr( Plugin::version ) . '</a>';
+
+		return $translate . $version;
 	}
 
 	public function _filter_body_class( $classes ){
