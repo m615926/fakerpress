@@ -1,7 +1,7 @@
 <?php
 namespace FakerPress\Module;
 use FakerPress\Admin;
-use FakerPress\Filter;
+use FakerPress\Variable;
 use FakerPress\Plugin;
 
 class User extends Base {
@@ -21,32 +21,148 @@ class User extends Base {
 			'view' => 'users',
 		);
 
-		add_filter( "fakerpress.module.{$this->slug}.save", array( $this, 'do_save' ), 10, 4 );
+		add_filter( "fakerpress.module.{$this->slug}.save", array( $this, 'do_save' ), 10, 3 );
 	}
 
-	public function do_save( $return_val, $params, $metas, $module ){
-		$user_id = wp_insert_user( $params );
+	public function format_link( $id ) {
+		return '<a href="' . esc_url( get_edit_user_link( $id ) ) . '">' . absint( $id ) . '</a>';
+	}
+
+	/**
+	 * Fetches all the FakerPress related Users
+	 * @return array IDs of the Users
+	 */
+	public static function fetch() {
+		$query_users = new \WP_User_Query(
+			array(
+				'fields' => 'ID',
+				'meta_query' => array(
+					array(
+						'key' => self::$flag,
+						'value' => true,
+						'type' => 'BINARY',
+					),
+				),
+			)
+		);
+
+		return array_map( 'absint', $query_users->results );
+	}
+
+	/**
+	 * Use this method to prevent excluding something that was not configured by FakerPress
+	 *
+	 * @param  array|int|\WP_User $user The ID for the user or the Object
+	 * @return bool
+	 */
+	public static function delete( $user ) {
+		if ( is_array( $user ) ) {
+			$deleted = array();
+
+			foreach ( $user as $id ) {
+				$id = $id instanceof \WP_User ? $id->ID : $id;
+
+				if ( ! is_numeric( $id ) ) {
+					continue;
+				}
+
+				$deleted[ $id ] = self::delete( $id );
+			}
+
+			return $deleted;
+		}
+
+		if ( is_numeric( $user ) ) {
+			$user = new \WP_User( $user );
+		}
+
+		if ( ! $user instanceof \WP_User || ! $user->exists() ) {
+			return false;
+		}
+
+		$flag = (bool) get_user_meta( $user->ID, self::$flag, true );
+
+		if ( true !== $flag ) {
+			return false;
+		}
+
+		return wp_delete_user( $user->ID, get_current_user_id() );
+	}
+
+
+	public function do_save( $return_val, $data, $module ) {
+		$user_id = wp_insert_user( $data );
 
 		if ( ! is_numeric( $user_id ) ){
 			return false;
 		}
 
 		// Only set role if needed
-		if ( ! is_null( $params['role'] ) ){
+		if ( ! is_null( $data['role'] ) ){
 			$user = new \WP_User( $user_id );
 
 			// Here we could add in the future the possibility to set multiple roles at once
-			$user->set_role( $params['role'] );
+			$user->set_role( $data['role'] );
 		}
 
-		foreach ( $metas as $key => $value ) {
-			update_user_meta( $user_id, $key, $value );
-		}
+		// Flag the Object as FakerPress
+		update_user_meta( $user_id, self::$flag, 1 );
 
 		return $user_id;
 	}
 
-	public function _action_parse_request( $view ){
+	public function parse_request( $qty, $request = array() ) {
+		if ( is_null( $qty ) ) {
+			$qty = Variable::super( INPUT_POST, array( Plugin::$slug, 'qty' ), FILTER_UNSAFE_RAW );
+			$min = absint( $qty['min'] );
+			$max = max( absint( isset( $qty['max'] ) ? $qty['max'] : 0 ), $min );
+			$qty = $this->faker->numberBetween( $min, $max );
+		}
+
+		if ( 0 === $qty ){
+			return esc_attr__( 'Zero is not a good number of users to fake...', 'fakerpress' );
+		}
+
+		$description_use_html = Variable::super( $request, array( 'use_html' ), FILTER_SANITIZE_STRING, 'off' ) === 'on';
+		$description_html_tags = array_map( 'trim', explode( ',', Variable::super( $request, array( 'html_tags' ), FILTER_SANITIZE_STRING ) ) );
+
+		$roles = array_intersect( array_keys( get_editable_roles() ), array_map( 'trim', explode( ',', Variable::super( $request, array( 'roles' ), FILTER_SANITIZE_STRING ) ) ) );
+		$metas = Variable::super( $request, array( 'meta' ), FILTER_UNSAFE_RAW );
+
+		$results = array();
+
+		for ( $i = 0; $i < $qty; $i++ ) {
+			$this->set( 'role', $roles );
+			$this->set( 'description', $description_use_html, array( 'elements' => $description_html_tags ) );
+			$this->set( 'user_registered', 'yesterday', 'now' );
+
+			$this->set( array(
+				'user_login',
+				'user_pass',
+				'user_nicename',
+				'user_url',
+				'user_email',
+				'display_name',
+				'nickname',
+				'first_name',
+				'last_name',
+			) );
+
+			$user_id = $this->generate()->save();
+
+			if ( $user_id && is_numeric( $user_id ) ){
+				foreach ( $metas as $meta_index => $meta ) {
+					Meta::instance()->object( $user_id, 'user' )->generate( $meta['type'], $meta['name'], $meta )->save();
+				}
+			}
+			$results[] = $user_id;
+		}
+		$results = array_filter( $results, 'absint' );
+
+		return $results;
+	}
+
+	public function _action_parse_request( $view ) {
 		if ( 'post' !== Admin::$request_method || empty( $_POST ) ) {
 			return false;
 		}
@@ -56,55 +172,17 @@ class User extends Base {
 		if ( ! check_admin_referer( $nonce_slug ) ) {
 			return false;
 		}
+
 		// After this point we are safe to say that we have a good POST request
-		$meta_module = Meta::instance();
+		$results = $this->parse_request( null, Variable::super( INPUT_POST, array( Plugin::$slug ), FILTER_UNSAFE_RAW ) );
 
-		$qty_min = absint( Filter::super( INPUT_POST, array( 'fakerpress', 'qty', 'min' ), FILTER_SANITIZE_NUMBER_INT ) );
-		$qty_max = absint( Filter::super( INPUT_POST, array( 'fakerpress', 'qty', 'max' ), FILTER_SANITIZE_NUMBER_INT ) );
-
-		$description_use_html = Filter::super( INPUT_POST, array( 'fakerpress', 'use_html' ), FILTER_SANITIZE_STRING, 'off' ) === 'on';
-		$description_html_tags = array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'html_tags' ), FILTER_SANITIZE_STRING ) ) );
-
-		$roles = array_intersect( array_keys( get_editable_roles() ), array_map( 'trim', explode( ',', Filter::super( INPUT_POST, array( 'fakerpress', 'roles' ), FILTER_SANITIZE_STRING ) ) ) );
-		$metas = Filter::super( INPUT_POST, array( 'fakerpress', 'meta' ), FILTER_UNSAFE_RAW );
-
-		if ( 0 === $qty_min ){
-			return Admin::add_message( sprintf( __( 'Zero is not a good number of %s to fake...', 'fakerpress' ), 'posts' ), 'error' );
-		}
-
-		if ( ! empty( $qty_min ) && ! empty( $qty_max ) ){
-			$quantity = $this->faker->numberBetween( $qty_min, $qty_max );
-		}
-
-		if ( ! empty( $qty_min ) && empty( $qty_max ) ){
-			$quantity = $qty_min;
-		}
-
-		$results = (object) array();
-
-		for ( $i = 0; $i < $quantity; $i++ ) {
-			$this->param( 'role', $roles );
-			$this->param( 'description', $description_use_html, array( 'elements' => $description_html_tags ) );
-			$this->generate();
-
-			$user_id = $this->save();
-
-			if ( $user_id && is_numeric( $user_id ) ){
-				foreach ( $metas as $meta_index => $meta ) {
-					$meta_module->object( $user_id, 'user' )->build( $meta['type'], $meta['name'], $meta )->save();
-				}
-			}
-			$results->all[] = $user_id;
-		}
-		$results->success = array_filter( $results->all, 'absint' );
-
-		if ( ! empty( $results->success ) ){
+		if ( ! empty( $results ) ){
 			return Admin::add_message(
 				sprintf(
 					__( 'Faked %d new %s: [ %s ]', 'fakerpress' ),
-					count( $results->success ),
-					_n( 'user', 'users', count( $results->success ), 'fakerpress' ),
-					implode( ', ', $results->success )
+					count( $results ),
+					_n( 'user', 'users', count( $results ), 'fakerpress' ),
+					implode( ', ', array_map( array( $this, 'format_link' ), $results ) )
 				)
 			);
 		}

@@ -23,8 +23,11 @@ if ( ! class_exists( 'Carbon\Carbon' ) ){
 // Include the Carbon class to deal with dates
 require_once Plugin::path( 'inc/class-fp-dates.php' );
 
+// Include the Utils for general stuff
+require_once Plugin::path( 'inc/class-fp-utils.php' );
+
 // Require our Filtering Class
-require_once Plugin::path( 'inc/class-fp-filter.php' );
+require_once Plugin::path( 'inc/class-fp-variable.php' );
 
 // Require our Field Class
 require_once Plugin::path( 'inc/class-fp-field.php' );
@@ -33,6 +36,7 @@ require_once Plugin::path( 'inc/class-fp-field.php' );
 require_once Plugin::path( 'providers/html.php' );
 require_once Plugin::path( 'providers/image/lorempixel.php' );
 require_once Plugin::path( 'providers/image/placeholdit.php' );
+require_once Plugin::path( 'providers/image/unsplashit.php' );
 require_once Plugin::path( 'providers/image/500px.php' );
 require_once Plugin::path( 'providers/text/base.php' );
 

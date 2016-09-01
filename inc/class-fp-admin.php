@@ -6,7 +6,7 @@ if ( ! defined( 'WPINC' ) ){
 	die;
 }
 
-Class Admin {
+class Admin {
 	/**
 	 * Variable holding the submenus objects
 	 *
@@ -74,12 +74,12 @@ Class Admin {
 	 *
 	 * @return null Construct never returns
 	 */
-	public function __construct(){
-		self::$request_method = strtolower( Filter::super( INPUT_SERVER, 'REQUEST_METHOD', FILTER_SANITIZE_STRING ) );
+	public function __construct() {
+		self::$request_method = strtolower( Variable::super( INPUT_SERVER, 'REQUEST_METHOD', FILTER_SANITIZE_STRING ) );
 
 		self::$is_ajax = ( defined( 'DOING_AJAX' ) && DOING_AJAX );
 
-		$page = Filter::super( INPUT_GET, 'page', FILTER_SANITIZE_STRING );
+		$page = Variable::super( INPUT_GET, 'page', FILTER_SANITIZE_STRING );
 		self::$in_plugin = ( ! is_null( $page ) && strtolower( $page ) === Plugin::$slug );
 
 		self::$menus[] = (object) array(
@@ -129,7 +129,7 @@ Class Admin {
 	 * @since 0.1.0
 	 *
 	 */
-	public static function add_menu( $view, $title, $label, $capability = 'manage_options', $priority = 10 ){
+	public static function add_menu( $view, $title, $label, $capability = 'manage_options', $priority = 10 ) {
 		$priority = absint( $priority );
 		self::$menus[] = (object) array(
 			'view' => sanitize_title( $view ),
@@ -157,7 +157,7 @@ Class Admin {
 	 * @since 0.1.2
 	 *
 	 */
-	public static function add_message( $html, $type = 'success', $priority = 10 ){
+	public static function add_message( $html, $type = 'success', $priority = 10 ) {
 		$priority = absint( $priority );
 
 		/**
@@ -185,14 +185,14 @@ Class Admin {
 	 *
 	 * @return void
 	 */
-	public function _action_set_admin_view(){
+	public function _action_set_admin_view() {
 		if ( ! self::$in_plugin ){
 			return;
 		}
 
 		// Default Page of the plugin
 		$view = (object) array(
-			'slug' => Filter::super( INPUT_GET, 'view', 'file', self::$menus[0]->view ),
+			'slug' => Variable::super( INPUT_GET, 'view', 'file', self::$menus[0]->view ),
 			'path' => null,
 		);
 
@@ -217,7 +217,7 @@ Class Admin {
 		self::$view = apply_filters( 'fakerpress.view', $view );
 
 		do_action( 'fakerpress.view.request', self::$view );
-		do_action( 'fakerpress.view.request.' . self::$view->slug , self::$view );
+		do_action( 'fakerpress.view.request.' . self::$view->slug, self::$view );
 	}
 
 
@@ -231,7 +231,7 @@ Class Admin {
 	 * @param  string $parent_file This doesn't Matter
 	 * @return string              We never touch this variable
 	 */
-	public function _filter_parent_file( $parent_file ){
+	public function _filter_parent_file( $parent_file ) {
 		if ( ! self::$in_plugin ){
 			return $parent_file;
 		}
@@ -273,7 +273,7 @@ Class Admin {
 
 		// Change the Default Submenu for FakerPress menus
 		if ( ! empty( $GLOBALS['submenu'][ Plugin::$slug ] ) ){
-			$GLOBALS['submenu'][ Plugin::$slug ][0][0] = esc_attr__( 'Settings', 'FakerPress' );
+			$GLOBALS['submenu'][ Plugin::$slug ][0][0] = esc_attr__( 'Settings', 'fakerpress' );
 		}
 	}
 
@@ -341,12 +341,8 @@ Class Admin {
 			return;
 		}
 
-		// Register the plugin CSS files
-		wp_register_style( 'fakerpress.messages', Plugin::url( 'ui/css/messages.css' ), array(), Plugin::version, 'screen' );
-		wp_register_style( 'fakerpress.admin', Plugin::url( 'ui/css/admin.css' ), array(), Plugin::version, 'screen' );
-
-		// Register the plugin JS files
-		wp_register_script( 'fakerpress.fields', Plugin::url( 'ui/js/fields.js' ), array( 'jquery', 'underscore', 'fakerpress.select2', 'jquery-ui-datepicker' ), Plugin::version, true );
+		// Register QS.js
+		wp_register_script( 'fakerpress.qs', Plugin::url( 'ui/vendor/qs.js' ), array(), '5.1.0', true );
 
 		// Register Vendor Select2
 		wp_register_style( 'fakerpress.select2', Plugin::url( 'ui/vendor/select2/select2.css' ), array(), '3.5.0', 'screen' );
@@ -357,6 +353,14 @@ Class Admin {
 		wp_register_style( 'fakerpress.jquery-ui', Plugin::url( 'ui/css/jquery-ui.css' ), array(), '1.10.1', 'screen' );
 		wp_register_style( 'fakerpress.datepicker', Plugin::url( 'ui/css/datepicker.css' ), array( 'fakerpress.jquery-ui' ), Plugin::version, 'screen' );
 
+		// Register the plugin CSS files
+		wp_register_style( 'fakerpress.messages', Plugin::url( 'ui/css/messages.css' ), array(), Plugin::version, 'screen' );
+		wp_register_style( 'fakerpress.admin', Plugin::url( 'ui/css/admin.css' ), array(), Plugin::version, 'screen' );
+
+		// Register the plugin JS files
+		wp_register_script( 'fakerpress.fields', Plugin::url( 'ui/js/fields.js' ), array( 'jquery', 'underscore', 'fakerpress.select2', 'jquery-ui-datepicker' ), Plugin::version, true );
+		wp_register_script( 'fakerpress.module', Plugin::url( 'ui/js/module.js' ), array( 'jquery', 'underscore', 'fakerpress.qs' ), Plugin::version, true );
+
 		// Enqueue DatePicker Skins
 		wp_enqueue_style( 'fakerpress.datepicker' );
 
@@ -366,13 +370,16 @@ Class Admin {
 
 		// Enqueue Vendor Select2
 		wp_enqueue_style( 'fakerpress.select2-wordpress' );
+
+		// Enqueue JS for the plugin
 		wp_enqueue_script( 'fakerpress.fields' );
+		wp_enqueue_script( 'fakerpress.module' );
 	}
 
 	/**
 	 * Method to include the settings page, from views folders
 	 *
-	 * @uses \FakerPress\Filter::super
+	 * @uses \FakerPress\Variable::super
 	 * @uses \FakerPress\Plugin::path
 	 * @uses do_action
 	 *
@@ -397,13 +404,16 @@ Class Admin {
 	}
 
 
-	public function _filter_set_view_action( $view ){
-		$view->action = Filter::super( INPUT_GET, 'action', FILTER_SANITIZE_STRING );
+	public function _filter_set_view_action( $view ) {
+		$view->action = Variable::super( INPUT_GET, 'action', FILTER_SANITIZE_STRING );
+		if ( empty( $view->action ) ){
+			$view->action = null;
+		}
 
 		return $view;
 	}
 
-	public function _filter_set_view_title( $view ){
+	public function _filter_set_view_title( $view ) {
 		foreach ( self::$menus as $menu ){
 			if ( $view->slug !== $menu->view ){
 				continue;
@@ -426,7 +436,7 @@ Class Admin {
 		return $view;
 	}
 
-	public function _filter_set_admin_page_title( $admin_title, $title ){
+	public function _filter_set_admin_page_title( $admin_title, $title ) {
 		if ( ! self::$in_plugin ){
 			return $admin_title;
 		}
@@ -477,14 +487,14 @@ Class Admin {
 	/**
 	 * Filter the WordPress Version on plugins pages to display plugin version
 	 *
-	 * @uses \FakerPress\Filter::super
+	 * @uses \FakerPress\Variable::super
 	 * @uses \FakerPress\Plugin::$slug
 	 * @uses __
 	 *
 	 * @since 0.1.0
 	 * @return string
 	 */
-	public function _filter_admin_footer_text( $text ){
+	public function _filter_admin_footer_text( $text ) {
 		if ( ! self::$in_plugin ){
 			return $text;
 		}
@@ -493,8 +503,7 @@ Class Admin {
 		 * @todo Review the links to the Official repository before release
 		 */
 		return
-			'<a target="_blank" href="http://wordpress.org/support/plugin/fakerpress#postform">' . esc_attr__( 'Contact Support', 'fakerpress' ) . '</a>' .
-			' | ' .
+			'<a target="_blank" href="http://wordpress.org/support/plugin/fakerpress#postform">' . esc_attr__( 'Contact Support', 'fakerpress' ) . '</a> | ' .
 			str_replace(
 				array( '[stars]', '[wp.org]' ),
 				array( '<a target="_blank" href="http://wordpress.org/support/view/plugin-reviews/fakerpress#postform" >&#9733;&#9733;&#9733;&#9733;&#9733;</a>', '<a target="_blank" href="http://wordpress.org/plugins/fakerpress/" >wordpress.org</a>' ),
@@ -505,7 +514,7 @@ Class Admin {
 	/**
 	 * Filter the WordPress Version on plugins pages to display the plugin version
 	 *
-	 * @uses \FakerPress\Filter::super
+	 * @uses \FakerPress\Variable::super
 	 * @uses \FakerPress\Plugin::$slug
 	 * @uses \FakerPress\Plugin::admin_url
 	 * @uses \FakerPress\Plugin::version
@@ -514,18 +523,18 @@ Class Admin {
 	 * @since 0.1.0
 	 * @return string
 	 */
-	public function _filter_update_footer( $text ){
+	public function _filter_update_footer( $text ) {
 		if ( ! self::$in_plugin ){
 			return $text;
 		}
 
 		$translate = sprintf( '<a class="fp-translations-link" href="%s" title="%s"><span class="dashicons dashicons-translation"></span></a>', Plugin::ext_site_url( '/r/translate' ), esc_attr__( 'Help us with Translations for the FakerPress project', 'fakerpress' ) );
-		$version = esc_attr__( 'Version' ) . ': ' . '<a title="' . __( 'View what changed in this version', 'fakerpress' ) . '" href="' . esc_url( Plugin::admin_url( 'view=changelog&version=' . esc_attr( Plugin::version ) ) ) . '">' . esc_attr( Plugin::version ) . '</a>';
+		$version = esc_attr__( 'Version', 'fakerpress' ) . ': <a title="' . __( 'View what changed in this version', 'fakerpress' ) . '" href="' . esc_url( Plugin::admin_url( 'view=changelog&version=' . esc_attr( Plugin::version ) ) ) . '">' . esc_attr( Plugin::version ) . '</a>';
 
 		return $translate . $version;
 	}
 
-	public function _filter_body_class( $classes ){
+	public function _filter_body_class( $classes ) {
 		$more = array(
 			$classes,
 			'__fakerpress',
@@ -534,7 +543,7 @@ Class Admin {
 		return implode( ' ', $more );
 	}
 
-	public function _action_setup_modules(){
+	public function _action_setup_modules() {
 		if ( ! is_admin() ){
 			return;
 		}
@@ -547,127 +556,55 @@ Class Admin {
 		Module\User::instance();
 	}
 
-	public function _action_setup_settings_page( $view ){
-		if ( 'post' !== Admin::$request_method || empty( $_POST ) ) {
+	public function _action_setup_settings_page( $view ) {
+		if ( 'post' !== self::$request_method || empty( $_POST ) ) {
 			return false;
 		}
 
-		$nonce_slug = Plugin::$slug . '.request.' . Admin::$view->slug . ( isset( Admin::$view->action ) ? '.' . Admin::$view->action : '' );
+		$nonce_slug = Plugin::$slug . '.request.' . self::$view->slug . ( isset( self::$view->action ) ? '.' . self::$view->action : '' );
 
 		if ( ! check_admin_referer( $nonce_slug ) ) {
 			return false;
 		}
 
-		$save_500px = is_string( Filter::super( INPUT_POST, array( 'fakerpress', 'actions', 'save_500px' ), FILTER_SANITIZE_STRING ) );
+		$save_500px = is_string( Variable::super( INPUT_POST, array( 'fakerpress', 'actions', 'save_500px' ), FILTER_UNSAFE_RAW ) );
 
 		if ( $save_500px ){
 			$opts = array(
-				'key' => Filter::super( INPUT_POST, array( 'fakerpress', '500px-key' ), FILTER_SANITIZE_STRING ),
+				'key' => Variable::super( INPUT_POST, array( 'fakerpress', '500px-key' ), FILTER_SANITIZE_STRING ),
 			);
 
 			Plugin::update( array( '500px' ), $opts );
 
-			return Admin::add_message( __( 'Updated 500px Customer Application settings', 'fakerpress' ), 'success' );
+			return self::add_message( __( 'Updated 500px Customer Application settings', 'fakerpress' ), 'success' );
 		}
 
 		// After this point we are safe to say that we have a good POST request
-		$erase_intention = is_string( Filter::super( INPUT_POST, array( 'fakerpress', 'actions', 'delete' ), FILTER_SANITIZE_STRING ) );
-		$erase_check     = in_array( strtolower( Filter::super( INPUT_POST, array( 'fakerpress', 'erase_phrase' ), FILTER_SANITIZE_STRING ) ), array( 'let it go', 'let it go!' ) );
+		$erase_intention = is_string( Variable::super( INPUT_POST, array( 'fakerpress', 'actions', 'delete' ), FILTER_UNSAFE_RAW ) );
+		$erase_check     = in_array( strtolower( Variable::super( INPUT_POST, array( 'fakerpress', 'erase_phrase' ), FILTER_SANITIZE_STRING ) ), array( 'let it go', 'let it go!' ) );
 
 		if ( ! $erase_intention ){
 			return false;
 		}
 
 		if ( ! $erase_check ){
-			return Admin::add_message( __( 'The verification to erase the data has failed, you have to let it go...', 'fakerpress' ), 'error' );
+			return self::add_message( __( 'The verification to erase the data has failed, you have to let it go...', 'fakerpress' ), 'error' );
 		}
 
-		$refs = (object) array(
-			'post' => array(),
-			'term' => get_option( 'fakerpress.module_flag.term', array() ),
-			'comment' => array(),
-			'user' => array(),
-		);
+		$modules = array( 'post', 'term', 'comment', 'user' );
 
-		$query_posts = new \WP_Query(
-			array(
-				'post_type' => 'any',
-				'post_status' => 'any',
-				'nopaging' => true,
-				'posts_per_page' => -1,
-				'fields' => 'ids',
-				'meta_query' => array(
-					array(
-						'key' => apply_filters( 'fakerpress.modules_flag', 'fakerpress_flag' ),
-						'value' => true,
-						'type' => 'BINARY',
-					),
-				),
-			)
-		);
+		foreach ( $modules as $module ){
+			$class_name = '\FakerPress\Module\\' . ucfirst( $module );
 
-		$refs->post = array_map( 'absint' , $query_posts->posts );
-
-		$query_comments = new \WP_Comment_Query;
-		$query_comments = $query_comments->query(
-			array(
-				'meta_query' => array(
-					array(
-						'key' => apply_filters( 'fakerpress.modules_flag', 'fakerpress_flag' ),
-						'value' => true,
-						'type' => 'BINARY',
-					),
-				),
-			)
-		);
-
-		foreach ( $query_comments as $comment ){
-			$refs->comment[] = absint( $comment->comment_ID );
-		}
-
-		$query_users = new \WP_User_Query(
-			array(
-				'fields' => 'ID',
-				'meta_query' => array(
-					array(
-						'key' => apply_filters( 'fakerpress.modules_flag', 'fakerpress_flag' ),
-						'value' => true,
-						'type' => 'BINARY',
-					),
-				),
-			)
-		);
-		$refs->user = array_map( 'absint', $query_users->results );
-
-		foreach ( $refs as $module => $ref ){
-			switch ( $module ) {
-				case 'post':
-					foreach ( $ref as $post_id ){
-						wp_delete_post( $post_id, true );
-					}
-					break;
-				case 'comment':
-					foreach ( $ref as $comment_id ){
-						wp_delete_comment( $comment_id, true );
-					}
-					break;
-				case 'term':
-					foreach ( $ref as $taxonomy => $terms ){
-						foreach ( $terms as $term ){
-							wp_delete_term( $term, $taxonomy );
-						}
-					}
-					delete_option( 'fakerpress.module_flag.term' );
-					break;
-				case 'user':
-					foreach ( $ref as $user_id ){
-						wp_delete_user( $user_id );
-					}
-					break;
+			if ( ! class_exists( $class_name ) ) {
+				continue;
 			}
+
+			$items = call_user_func_array( $class_name . '::fetch', array() );
+			$deleted = call_user_func_array( $class_name . '::delete', array( $items ) );
 		}
 
-		return Admin::add_message( __( 'All data is gone for good.', 'fakerpress' ), 'success' );
+		return self::add_message( __( 'All data is gone for good.', 'fakerpress' ), 'success' );
 	}
 }
 

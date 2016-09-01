@@ -125,30 +125,6 @@ $fields[] = new Field(
 	)
 );
 
-$taxonomies = get_taxonomies( array( 'public' => true ), 'object' );
-
-$_json_taxonomies_output = array();
-foreach ( $taxonomies as $key => $taxonomy ) {
-	$_json_taxonomies_output[] = array(
-		'id' => $taxonomy->name,
-		'text' => $taxonomy->labels->name,
-	);
-}
-
-$fields[] = new Field(
-	'dropdown',
-	array(
-		'id' => 'taxonomies',
-		'multiple' => true,
-		'value' => 'post_tag, category',
-		'data-options' => $_json_taxonomies_output,
-	),
-	array(
-		'label' => __( 'Taxonomies', 'fakerpress' ),
-		'description' => __( 'From which taxonomies the related terms should be selected', 'fakerpress' ),
-	)
-);
-
 $fields[] = new Field(
 	'number',
 	array(
@@ -167,6 +143,11 @@ $fields[] = new Field(
 $_image_providers[] = array(
 	'id' => 'placeholdit',
 	'text' => 'Placehold.it',
+);
+
+$_image_providers[] = array(
+	'id' => 'unsplashit',
+	'text' => 'Unsplash.it',
 );
 
 $_image_providers[] = array(
@@ -226,6 +207,17 @@ $fields[] = new Field(
 );
 
 $fields[] = new Field(
+	'taxonomy',
+	array(
+		'id' => 'taxonomy',
+	),
+	array(
+		'label' => __( 'Taxonomy Field Rules', 'fakerpress' ),
+		'description' => __( 'Use the fields below to configure the rules for the Taxonomy and Terms selected', 'fakerpress' ),
+	)
+);
+
+$fields[] = new Field(
 	'meta',
 	array(
 		'id' => 'meta',
@@ -241,13 +233,19 @@ $fields[] = new Field(
 <div class='wrap'>
 	<h2><?php echo esc_attr( Admin::$view->title ); ?></h2>
 
-	<form method='post'>
+	<form method='post' class='fp-module-generator'>
 		<?php wp_nonce_field( Plugin::$slug . '.request.' . Admin::$view->slug . ( isset( Admin::$view->action ) ? '.' . Admin::$view->action : '' ) ); ?>
+		<input type="hidden" name="fakerpress[view]" value="<?php echo esc_attr( Admin::$view->slug ); ?>">
+
 		<table class="form-table" style="display: table;">
 			<tbody>
 				<?php foreach ( $fields as $field ) { $field->output( true ); } ?>
 			</tbody>
 		</table>
-		<?php submit_button( __( 'Generate', 'fakerpress' ), 'primary' ); ?>
+		<div class="fp-submit">
+			<?php submit_button( __( 'Generate', 'fakerpress' ), 'primary', null, false ); ?>
+			<span class="spinner"></span>
+			<div class="fp-response"></div>
+		</div>
 	</form>
 </div>

@@ -1,5 +1,6 @@
 <?php
 namespace Faker\Provider;
+use FakerPress;
 
 class WP_Post extends Base {
 
@@ -15,7 +16,7 @@ class WP_Post extends Base {
 		return $title;
 	}
 
-	public function post_type( $haystack = array() ){
+	public function post_type( $haystack = array() ) {
 		if ( empty( $haystack ) ){
 			// Later on we will remove the Attachment rule
 			$haystack = array_diff( get_post_types( array( 'public' => true, 'show_ui' => true ), 'names' ), array( 'attachment' ) );
@@ -24,7 +25,7 @@ class WP_Post extends Base {
 		return $this->generator->randomElement( (array) $haystack );
 	}
 
-	public function post_status( $haystack = array( 'draft', 'publish', 'private' ) ){
+	public function post_status( $haystack = array( 'draft', 'publish', 'private' ) ) {
 		if ( empty( $haystack ) ){
 			$haystack = array_values( get_post_stati() );
 		}
@@ -32,7 +33,7 @@ class WP_Post extends Base {
 		return $this->generator->randomElement( (array) $haystack );
 	}
 
-	public function post_date( $interval = 'now' ){
+	public function post_date( $interval = 'now' ) {
 		$format = 'Y-m-d H:i:s';
 		$interval = (array) $interval;
 
@@ -48,7 +49,9 @@ class WP_Post extends Base {
 			// Unfortunatelly there is not such solution to this problem, we need to try and catch with DateTime
 			try {
 				$max = new \Carbon\Carbon( array_shift( $interval ) );
-			} catch ( \Exception $e ) {}
+			} catch ( \Exception $e ) {
+
+			}
 		}
 
 		if ( ! isset( $max ) ) {
@@ -77,7 +80,7 @@ class WP_Post extends Base {
 		return $content;
 	}
 
-	public function post_author( $haystack = array() ){
+	public function post_author( $haystack = array() ) {
 		if ( empty( $haystack ) ){
 			$haystack = get_users(
 				array(
@@ -91,11 +94,11 @@ class WP_Post extends Base {
 		return $this->generator->randomElement( (array) $haystack );
 	}
 
-	public function post_parent( $haystack = array(), $weight = 0.7 ){
+	public function post_parent( $haystack = array(), $weight = 70 ) {
 		return $this->generator->optional( $weight, 0 )->randomElement( (array) $haystack );
 	}
 
-	public function ping_status( $haystack = array() ){
+	public function ping_status( $haystack = array() ) {
 		if ( empty( $haystack ) ){
 			$haystack = static::$default['ping_status'];
 		}
@@ -103,7 +106,7 @@ class WP_Post extends Base {
 		return $this->generator->randomElement( (array) $haystack );
 	}
 
-	public function comment_status( $haystack = array() ){
+	public function comment_status( $haystack = array() ) {
 		if ( empty( $haystack ) ){
 			$haystack = static::$default['comment_status'];
 		}
@@ -111,7 +114,7 @@ class WP_Post extends Base {
 		return $this->generator->randomElement( (array) $haystack );
 	}
 
-	public function menu_order( $haystack = array() ){
+	public function menu_order( $haystack = array() ) {
 		if ( empty( $haystack ) ){
 			return 0;
 		}
@@ -119,7 +122,7 @@ class WP_Post extends Base {
 		return $this->generator->randomElement( (array) $haystack );
 	}
 
-	public function post_password( $generator = null, $args = array() ){
+	public function post_password( $generator = null, $args = array() ) {
 		if ( is_null( $generator ) ){
 			return '';
 		}
@@ -127,9 +130,9 @@ class WP_Post extends Base {
 		return call_user_func_array( $generator, $args );
 	}
 
-	public function tax_input( $taxonomies = null ) {
+	public function tax_input( $config = null ) {
 		$output = array();
-		if ( is_null( $taxonomies ) ){
+		if ( is_null( $config ) ){
 			return $output;
 		}
 
@@ -147,51 +150,46 @@ class WP_Post extends Base {
 			'__default' => array( 0, 3 )
 		) );
 
-		foreach ( $taxonomies as $taxonomy ){
-			// Get all the term ids
-			$terms = array_map( 'absint', get_terms( $taxonomy, array( 'fields' => 'ids', 'hide_empty' => false ) ) );
+		foreach ( $config as $settings ){
+			$settings = (object) $settings;
 
-			$range = (array) ( isset( $ranges[ $taxonomy ] ) ? $ranges[ $taxonomy ] : $ranges['__default'] );
-			$qty_min = min( (array) $range );
-			$rate = ( isset( $rates[ $taxonomy ] ) ? $rates[ $taxonomy ] : $rates['__default'] );
-
-			// Turn a range into a number
-			$qty = ( is_array( $range ) ? call_user_func_array( array( $this->generator, 'numberBetween' ), $range ) : $range );
-
-			// Only check if not 0
-			if ( 0 !== $qty ){
-				$qty = min( count( $terms ), $qty );
+			if ( ! empty( $settings->taxonomies ) && is_string( $settings->taxonomies ) ) {
+				$settings->taxonomies = explode( ',', $settings->taxonomies );
 			}
+			$settings->taxonomies = array_filter( (array) $settings->taxonomies );
 
-			// Select the elements based on range
-			$elements = $this->generator->randomElements( $terms , $qty );
-			$tax_input = array();
+			if ( ! empty( $settings->terms ) && is_string( $settings->terms ) ) {
+				$settings->terms = explode( ',', $settings->terms );
+			}
+			$settings->terms = array_filter( (array) $settings->terms );
 
-			foreach ( $elements as $term_id ) {
-				// Apply the rate
-				if ( $this->generator->numberBetween( 0, 100 ) <= absint( $rate ) ){
-					$tax_input[] = $term_id;
+			foreach ( $settings->taxonomies as $taxonomy ) {
+				if ( empty( $settings->terms ) ) {
+					$terms = get_terms( $taxonomy, array( 'fields' => 'ids', 'hide_empty' => false ) );
+				} else {
+					$terms = $settings->terms;
 				}
-			}
 
-			// If the number of elements is equals 1 and minimum is 1 then apply any
-			if ( count( $tax_input ) < $qty_min ){
-				$_elements = $terms;
-				for ( $i = count( $tax_input ); $i < $qty_min; $i++ ) {
-					$selected = $this->generator->randomElement( $_elements );
-					$tax_input[] = $selected;
+				// Get all the term ids
+				$terms = array_filter( array_map( 'absint', $terms ) );
 
-					// Make elements unique
-					$selected_key = array_search( $selected, $_elements );
-					unset( $_elements[ $selected_key ] );
+				if ( ! isset( $settings->qty ) ) {
+					$qty = FakerPress\Utils::instance()->get_qty_from_range( ( isset( $ranges[ $taxonomy ] ) ? $ranges[ $taxonomy ] : $ranges['__default'] ), $terms );
+				} else {
+					$qty = (int) FakerPress\Utils::instance()->get_qty_from_range( $settings->qty, $terms );
 				}
-			}
 
-			$output[ $taxonomy ] = $tax_input;
+				if ( ! isset( $settings->rate ) ) {
+					$rate = isset( $rates[ $taxonomy ] ) ? $rates[ $taxonomy ] : $rates['__default'];
+				} else {
+					$rate = (int) $settings->rate;
+				}
+
+				// Select the elements based on qty
+				$output[ $taxonomy ] = $this->generator->optional( (int) $rate, null )->randomElements( $terms, (int) $qty );
+			}
 		}
 
 		return $output;
 	}
-
-
 }

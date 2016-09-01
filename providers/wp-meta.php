@@ -37,19 +37,17 @@ class WP_Meta extends Base {
 
 	public function meta_type_numbers( $number = array( 0, 9 ), $weight = 50 ) {
 		$number = ( is_array( $number ) ? call_user_func_array( array( $this->generator, 'numberBetween' ), $number ) : $number );
-		$weight = $weight / 100;
 
-		return $this->generator->optional( $weight, null )->randomElement( (array) $number );
+		return $this->generator->optional( (int) $weight, null )->randomElement( (array) $number );
 	}
 
 	public function meta_type_elements( $elements = '', $qty = 1, $separator = ',', $weight = 50 ) {
-		$weight = $weight / 100;
 		$separator = $this->meta_parse_separator( $separator );
 
 		$elements = explode( ',', $elements );
 		$qty = $this->meta_parse_qty( $qty, $elements );
 
-		$value = $this->generator->optional( $weight, null )->randomElements( (array) $elements, $qty );
+		$value = $this->generator->optional( (int) $weight, null )->randomElements( (array) $elements, $qty );
 		if ( is_null( $value ) ) {
 			return $value;
 		}
@@ -58,27 +56,23 @@ class WP_Meta extends Base {
 	}
 
 	public function meta_type_letter( $weight = 50 ) {
-		$weight = $weight / 100;
-
-		return $this->generator->optional( $weight, null )->randomLetter();
+		return $this->generator->optional( (int) $weight, null )->randomLetter();
 	}
 
 	public function meta_type_words( $qty = 8, $weight = 50 ) {
-		$weight = $weight / 100;
 		$qty = $this->meta_parse_qty( $qty );
 
-		return $this->generator->optional( $weight, null )->sentence( $qty );
+		return $this->generator->optional( (int) $weight, null )->sentence( $qty );
 	}
 
 	public function meta_type_text( $type = 'sentences', $qty = 3, $separator = "\r\n\r\n", $weight = 50 ) {
-		$weight = $weight / 100;
 		$separator = $this->meta_parse_separator( $separator );
 		$qty = $this->meta_parse_qty( $qty );
 
 		if ( 'sentences' === $type ){
-			$value = $this->generator->optional( $weight, null )->sentences( $qty );
+			$value = $this->generator->optional( (int) $weight, null )->sentences( $qty );
 		} else {
-			$value = $this->generator->optional( $weight, null )->paragraphs( $qty );
+			$value = $this->generator->optional( (int) $weight, null )->paragraphs( $qty );
 		}
 
 		if ( is_null( $value ) ) {
@@ -89,11 +83,10 @@ class WP_Meta extends Base {
 	}
 
 	public function meta_type_html( $elements, $qty = 6, $weight = 50 ) {
-		$weight = $weight / 100;
 		$qty = $this->meta_parse_qty( $qty );
 		$elements = explode( ',', $elements );
 
-		$value = $this->generator->optional( $weight, null )->html_elements( array(
+		$value = $this->generator->optional( (int) $weight, null )->html_elements( array(
 			'elements' => $elements,
 			'qty' => $qty,
 		) );
@@ -102,14 +95,17 @@ class WP_Meta extends Base {
 			return $value;
 		}
 
-		return implode( "\n" , $value );
+		return implode( "\n", $value );
 	}
 
 	public function meta_type_wp_query( $query, $weight = 50 ) {
-		$weight = $weight / 100;
-
 		$args = wp_parse_args( $query, array() );
 		$args['fields'] = 'ids';
+
+		// Make easier for Attachment Queries
+		if ( isset( $args['post_type'] ) && ! isset( $args['post_status'] ) && in_array( 'attachment', (array) $args['post_type'] ) ) {
+			$args['post_status'] = 'any';
+		}
 
 		$query = new \WP_Query( $args );
 
@@ -117,46 +113,36 @@ class WP_Meta extends Base {
 			return null;
 		}
 
-		$value = $this->generator->optional( $weight, null )->randomElement( (array) $query->posts );
+		$value = $this->generator->optional( (int) $weight, null )->randomElement( (array) $query->posts );
 
 		return $value;
 	}
 
 	public function meta_type_lexify( $template, $weight = 50 ) {
-		$weight = $weight / 100;
-
-		$value = $this->generator->optional( $weight, null )->bothify( (string) $template );
+		$value = $this->generator->optional( (int) $weight, null )->bothify( (string) $template );
 
 		return $value;
 	}
 
 	public function meta_type_asciify( $template, $weight = 50 ) {
-		$weight = $weight / 100;
-
-		$value = $this->generator->optional( $weight, null )->asciify( (string) $template );
+		$value = $this->generator->optional( (int) $weight, null )->asciify( (string) $template );
 
 		return $value;
 	}
 
 	public function meta_type_regexify( $template, $weight = 50 ) {
-		$weight = $weight / 100;
-
-		$value = $this->generator->optional( $weight, null )->regexify( (string) $template );
+		$value = $this->generator->optional( (int) $weight, null )->regexify( (string) $template );
 
 		return $value;
 	}
 
 	public function meta_type_timezone( $weight = 50 ) {
-		$weight = $weight / 100;
-
-		$value = $this->generator->optional( $weight, null )->timezone;
+		$value = $this->generator->optional( (int) $weight, null )->timezone;
 
 		return $value;
 	}
 
 	public function meta_type_company( $template, $weight = 50 ) {
-		$weight = $weight / 100;
-
 		$template = explode( '|', $template );
 
 		$tags = array(
@@ -191,14 +177,12 @@ class WP_Meta extends Base {
 			}
 		}
 
-		$value = $this->generator->optional( $weight, null )->randomElement( (array) implode( '', $text ) );
+		$value = $this->generator->optional( (int) $weight, null )->randomElement( (array) implode( '', $text ) );
 
 		return $value;
 	}
 
 	public function meta_type_person( $template, $gender = 'female', $weight = 50 ) {
-		$weight = $weight / 100;
-
 		$template = explode( '|', $template );
 
 		$tags = array(
@@ -233,16 +217,17 @@ class WP_Meta extends Base {
 			}
 		}
 
-		$value = $this->generator->optional( $weight, null )->randomElement( (array) implode( '', $text ) );
+		$value = $this->generator->optional( (int) $weight, null )->randomElement( (array) implode( '', $text ) );
 
 		return $value;
 	}
 
 	public function meta_type_geo( $template, $weight = 50 ) {
-		$weight = $weight / 100;
 		$template = explode( '|', $template );
 		$tags = array(
 			'country',
+			'country_code',
+			'country_abbr',
 			'city_prefix',
 			'city_suffix',
 			'city',
@@ -267,6 +252,12 @@ class WP_Meta extends Base {
 				switch ( $term ) {
 					case 'country':
 						$text[] = $this->generator->country;
+						break;
+					case 'country_code':
+						$text[] = \FakerPress\Utils::get_country_alpha_code( $this->generator->country, 2 );
+						break;
+					case 'country_abbr':
+						$text[] = \FakerPress\Utils::get_country_alpha_code( $this->generator->country, 3 );
 						break;
 					case 'city_prefix':
 						$text[] = $this->generator->cityPrefix;
@@ -313,7 +304,7 @@ class WP_Meta extends Base {
 			}
 		}
 
-		$value = $this->generator->optional( $weight, null )->randomElement( (array) implode( '', $text ) );
+		$value = $this->generator->optional( (int) $weight, null )->randomElement( (array) implode( '', $text ) );
 
 		return $value;
 	}
@@ -349,45 +340,37 @@ class WP_Meta extends Base {
 
 		$selected = $this->generator->dateTimeBetween( (string) $min, (string) $max )->format( $format );
 
-		$value = $this->generator->optional( $weight, null )->randomElement( (array) $selected );
+		$value = $this->generator->optional( (int) $weight, null )->randomElement( (array) $selected );
 
 		return $value;
 	}
 
 	public function meta_type_ip( $weight = 50 ) {
-		$weight = $weight / 100;
-
-		$value = $this->generator->optional( $weight, null )->ipv4;
+		$value = $this->generator->optional( (int) $weight, null )->ipv4;
 
 		return $value;
 	}
 
 	public function meta_type_domain( $weight = 50 ) {
-		$weight = $weight / 100;
-
-		$value = $this->generator->optional( $weight, null )->domainName;
+		$value = $this->generator->optional( (int) $weight, null )->domainName;
 
 		return $value;
 	}
 
 	public function meta_type_email( $weight = 50 ) {
-		$weight = $weight / 100;
-
-		$value = $this->generator->optional( $weight, null )->email;
+		$value = $this->generator->optional( (int) $weight, null )->email;
 
 		return $value;
 	}
 
 	public function meta_type_user_agent( $weight = 50 ) {
-		$weight = $weight / 100;
-
-		$value = $this->generator->optional( $weight, null )->userAgent;
+		$value = $this->generator->optional( (int) $weight, null )->userAgent;
 
 		return $value;
 	}
 
 	public function meta_type_raw( $weight = 100, $value = null, $default = null ) {
-		if ( $weight >= $this->generator->numberBetween( 0, 100 ) ) {
+		if ( (int) $weight >= $this->generator->numberBetween( 0, 100 ) ) {
 			return $value;
 		} else {
 			return $default;

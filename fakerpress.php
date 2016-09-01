@@ -3,7 +3,7 @@
  * Plugin Name:       FakerPress
  * Plugin URI:        https://fakerpress.com
  * Description:       FakerPress is a clean way to generate fake data to your WordPress instalation, great for developers who need testing
- * Version:           0.3.3
+ * Version:           0.4.6
  * Author:            Gustavo Bordoni
  * Author URI:        http://bordoni.me
  * Text Domain:       fakerpress
@@ -53,7 +53,7 @@ if ( version_compare( PHP_VERSION, '5.3', '<' ) ) {
 				'<br />' .
 				esc_attr__( 'To allow better control over dates, advanced security improvements and performance gain.', 'fakerpress' ) .
 				'<br />' .
-				esc_attr__( 'Contact your Hosting or your system administrator and ask for this Upgrade to version 5.3 of PHP.', 'vsh' );
+				esc_attr__( 'Contact your Hosting or your system administrator and ask for this Upgrade to version 5.3 of PHP.', 'fakerpress' );
 			exit();
 		}
 

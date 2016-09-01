@@ -2,7 +2,7 @@
 Contributors:      bordoni
 Tags:              generator, dummy content, dummy data, lorem ipsun, admin, exemples, testing, images, attachments, featured image, taxonomies, users, post type, faker, fake data, random, developer, dev, development, test, tests
 Requires at least: 3.7
-Tested up to:      4.2
+Tested up to:      4.5
 Stable tag:        trunk
 License:           GPLv2 or later
 License URI:       http://www.gnu.org/licenses/gpl-2.0.html
@@ -39,7 +39,7 @@ Normally a WordPress developer will need to perform the task of filling up an em
 Create randomly generated attachments as the Featured Images for your WordPress dummy content.
 
 = Create random Meta Information =
-WordPress has Meta for Users, Posts and Comments, FakerPress will allow you to generate custom dummy meta for all three, with *19 types of Data*
+WordPress has Meta for Users, Posts, Terms and Comments, FakerPress will allow you to generate custom dummy meta for all four, with *19 types of Data*
 
 = Delete the Content Generated =
 After you are done with your testing it should be easy to delete all the content created using FakerPress, now you will be able to do it.
@@ -99,6 +99,43 @@ Great! There are several ways you can get involved to help make FakerPress bette
 Thank you for wanting to make FakerPress better for everyone! [We salute you](https://www.youtube.com/watch?v=8fPf6L0XNvM).
 
 == Changelog ==
+
+= 0.4.6 &mdash; 14 of June, 2016 =
+* Fix: Post Meta and taxonomy is finally working again &mdash; Thanks [@peachey_a](https://wordpress.org/support/topic/generated-posts-not-assigned-categories) and [@zoeitsolutions](https://wordpress.org/support/topic/user-meta-not-being-generated)
+* Fix: Allow Meta Number generation using any type of range, doesn't limit from 0 to 9
+
+= 0.4.5 &mdash; 11 of June, 2016 =
+* Fix: Users Module was using Post Meta methods on flag related methods, preventing the users to be deleted when "Let it Go!" &mdash; Thanks [@derpixler](https://github.com/bordoni/fakerpress/issues/84)
+* Fix: Taxonomy and Meta Modules had a compatibility problem with Faker, preveting users to use Meta and Taxonomy Properly &mdash; Thanks [@rayrutjes](https://github.com/bordoni/fakerpress/issues/94)
+* Tweak: Add a better description for a few fields
+* Tweak: Include [latest code from Faker](https://github.com/fzaninotto/Faker) version > 1.6.0
+
+= 0.4.4 &mdash; 1 of April, 2016 =
+* Feature: Address Meta templating now allows you to fetch Country ABBR and Code &mdash; Thanks [@kirilisa](https://wordpress.org/support/topic/excellent-3360)
+* Tweak: Include [latest code from Faker](https://github.com/fzaninotto/Faker) version > 1.5.0
+* Tweak: WP_Query Meta for attachments is a little bit easier now, prediction of forgotten `post_status`
+* Tweak: Make the Post Parent selection easier to know which posts by showing more information on the items &mdash; Thanks [@fxbernard](https://github.com/bordoni/fakerpress/issues/81)
+* Fix: Get some missing Text Domains working &mdash; Thanks [@ginsterbusch](https://github.com/bordoni/fakerpress/issues/77)
+
+= 0.4.3 &mdash; 1 of March, 2016 =
+* Feature: No more Hot-linking external sites on Content Images &mdash; Thanks [b0rg](https://profiles.wordpress.org/b0rg) + [mvaneijgen](https://profiles.wordpress.org/mvaneijgen) + [okvee](https://profiles.wordpress.org/okvee)
+* Tweak: Use `wp_remote_get` to fetch external images &mdash; Thanks [revaxarts](https://twitter.com/revaxarts)
+* Tweak: Improve how we handle the Deletes to make sure it doesn't delete all your site &mdash; Thanks [Paul Mckay](https://twitter.com/McKay_1988/status/700299519825723392)
+* Fix: Prevent Notices from happening when no Image providers were selected
+
+= 0.4.2 &mdash; 9 of November, 2015 =
+* Feature: Include meta for Terms for WordPress 4.4 and Up
+* Tweak: Include a more granular control over Taxonomy selector for Posts
+* Fix: CSS changes for WordPress 4.4
+
+= 0.4.1 &mdash; 24 of September, 2015 =
+* Tweak: Improve Modules code in general, if you have custom code based on Modules please check ([#71](https://github.com/bordoni/fakerpress/pull/71))
+* Fix: Generate button was locking after a warning for trying a bad request
+* Fix: Improved Modules JavaScript to prevent duplicated arguments on AJAX requests &mdash; Thanks [Jonathan Brinley](https://profiles.wordpress.org/jbrinley/)
+
+= 0.4.0 &mdash; 21 of September, 2015 =
+* Feature: Now Modules use AJAX to fake, AKA no more timeouts for big dummy creation
+* Fix: handle WP_Error on term creation, avoids fatal errors if the term already exists &mdash; Thanks [Jonathan Brinley](https://profiles.wordpress.org/jbrinley/)
 
 = 0.3.3 &mdash; 10 of June, 2015 =
 * Tweak: Our menus and submenus no longer require JavaScript to work
